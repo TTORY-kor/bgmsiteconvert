@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="YouTube BGM Manager와 TRPG Watch JSON 파일을 양방향으로 변환합니다." />
+  <title>BGM JSON Converter</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b0d12;
+      --panel: #131722;
+      --panel-2: #191f2d;
+      --line: #2b3448;
+      --text: #f5f7ff;
+      --muted: #9da8bd;
+      --accent: #8b7cff;
+      --accent-2: #5dd6c0;
+      --danger: #ff7285;
+      --shadow: 0 18px 60px rgba(0,0,0,.35);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Pretendard, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 15% 0%, rgba(139,124,255,.15), transparent 32rem),
+        radial-gradient(circle at 100% 10%, rgba(93,214,192,.10), transparent 28rem),
+        var(--bg);
+      color: var(--text);
+    }
+    button, input, select, textarea { font: inherit; }
+    .wrap { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 54px 0 80px; }
+    header { margin-bottom: 28px; }
+    .eyebrow { color: var(--accent-2); font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { margin: 8px 0 10px; font-size: clamp(32px, 5vw, 58px); line-height: 1.05; letter-spacing: -.045em; }
+    .lead { margin: 0; max-width: 760px; color: var(--muted); line-height: 1.7; }
+    .panel {
+      border: 1px solid var(--line);
+      background: rgba(19,23,34,.88);
+      backdrop-filter: blur(14px);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: 1.1fr auto 1.1fr;
+      gap: 14px;
+      align-items: end;
+      padding: 22px;
+      border-bottom: 1px solid var(--line);
+    }
+    label { display: grid; gap: 8px; color: var(--muted); font-size: 13px; font-weight: 700; }
+    select, input[type="text"] {
+      width: 100%;
+      min-height: 46px;
+      padding: 0 14px;
+      color: var(--text);
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      outline: none;
+    }
+    select:focus, input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(139,124,255,.14); }
+    .swap { height: 46px; min-width: 46px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); background: var(--panel-2); cursor: pointer; font-size: 20px; }
+    .workspace { display: grid; grid-template-columns: 1fr 1fr; min-height: 510px; }
+    .column { min-width: 0; display: flex; flex-direction: column; }
+    .column + .column { border-left: 1px solid var(--line); }
+    .column-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 18px; border-bottom: 1px solid var(--line); }
+    .column-title { font-weight: 800; }
+    .file-button, .secondary, .primary {
+      border: 0;
+      border-radius: 11px;
+      padding: 10px 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .file-button, .secondary { color: var(--text); background: #232a3b; }
+    .primary { color: #0d1020; background: linear-gradient(135deg, var(--accent-2), #a2ffe8); }
+    textarea {
+      flex: 1;
+      width: 100%;
+      min-height: 440px;
+      resize: vertical;
+      border: 0;
+      outline: none;
+      padding: 18px;
+      color: #dce5ff;
+      background: #0f131d;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.65;
+      tab-size: 2;
+    }
+    .options { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 16px 20px; border-top: 1px solid var(--line); }
+    .check { display: inline-flex; grid-template-columns: auto 1fr; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+    .check input { accent-color: var(--accent); }
+    .actions { margin-left: auto; display: flex; gap: 10px; }
+    .status { min-height: 24px; padding: 0 20px 18px; color: var(--muted); font-size: 13px; }
+    .status.ok { color: var(--accent-2); }
+    .status.error { color: var(--danger); }
+    .notes {
+      margin-top: 22px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .note { padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: rgba(19,23,34,.72); }
+    .note strong { display:block; margin-bottom: 7px; }
+    .note p { margin:0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+    @media (max-width: 800px) {
+      .wrap { width: min(100% - 20px, 1180px); padding-top: 30px; }
+      .controls { grid-template-columns: 1fr; }
+      .swap { width: 100%; }
+      .workspace { grid-template-columns: 1fr; }
+      .column + .column { border-left: 0; border-top: 1px solid var(--line); }
+      .notes { grid-template-columns: 1fr; }
+      .actions { width: 100%; margin-left: 0; }
+      .actions button { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div class="eyebrow">GitHub Pages · Local only</div>
+      <h1>BGM JSON Converter</h1>
+      <p class="lead">YouTube BGM Manager와 TRPG Watch의 내보내기 JSON을 브라우저 안에서 양방향 변환합니다. 파일은 서버로 전송되지 않습니다.</p>
+    </header>
+
+    <section class="panel">
+      <div class="controls">
+        <label>입력 형식
+          <select id="sourceType">
+            <option value="auto">자동 감지</option>
+            <option value="manager">YouTube BGM Manager</option>
+            <option value="watch">TRPG Watch</option>
+          </select>
+        </label>
+        <button class="swap" id="swapBtn" title="입력·출력 교환">⇄</button>
+        <label>출력 형식
+          <select id="targetType">
+            <option value="watch">TRPG Watch</option>
+            <option value="manager">YouTube BGM Manager</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="workspace">
+        <section class="column">
+          <div class="column-head">
+            <span class="column-title">원본 JSON</span>
+            <label class="file-button">파일 선택<input id="fileInput" type="file" accept=".json,application/json" hidden></label>
+          </div>
+          <textarea id="inputJson" spellcheck="false" placeholder="JSON을 붙여넣거나 파일을 선택하세요."></textarea>
+        </section>
+
+        <section class="column">
+          <div class="column-head">
+            <span class="column-title">변환 결과</span>
+            <button class="secondary" id="copyBtn">복사</button>
+          </div>
+          <textarea id="outputJson" spellcheck="false" readonly placeholder="변환 결과가 여기에 표시됩니다."></textarea>
+        </section>
+      </div>
+
+      <div class="options">
+        <label class="check"><input type="checkbox" id="preserveMeta" checked> 손실 정보는 메모에 보존</label>
+        <label class="check"><input type="checkbox" id="mergeDuplicates" checked> 역변환 시 중복 영상 합치기</label>
+        <div class="actions">
+          <button class="secondary" id="sampleBtn">예시 불러오기</button>
+          <button class="primary" id="convertBtn">변환하기</button>
+          <button class="primary" id="downloadBtn" disabled>JSON 다운로드</button>
+        </div>
+      </div>
+      <div class="status" id="status"></div>
+    </section>
+
+    <section class="notes">
+      <article class="note"><strong>폴더 ↔ 시나리오</strong><p>BGM Manager 폴더는 TRPG Watch 시나리오로 변환됩니다. 여러 폴더에 속한 곡은 각 시나리오에 포함됩니다.</p></article>
+      <article class="note"><strong>YouTube 주소 ↔ ID</strong><p>watch, youtu.be, shorts, embed 주소를 분석해 영상 ID를 추출합니다. 역변환할 때는 표준 watch 주소를 만듭니다.</p></article>
+      <article class="note"><strong>형식 차이 보완</strong><p>태그·폴더 색·반복 재생·SFX처럼 상대 형식에 없는 값은 선택 시 메모의 전용 메타데이터 줄에 보관합니다.</p></article>
+    </section>
+  </main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const state = { result: null, filename: "converted.json" };
+const META_PREFIX = "[[BGM-CONVERTER-META]]";
+
+function nowIso() { return new Date().toISOString(); }
+
+function extractYoutubeId(value) {
+  if (!value || typeof value !== "string") return "";
+  const raw = value.trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(raw)) return raw;
+  try {
+    const url = new URL(raw);
+    if (url.hostname.includes("youtu.be")) return url.pathname.split("/").filter(Boolean)[0] || "";
+    if (url.searchParams.get("v")) return url.searchParams.get("v");
+    const parts = url.pathname.split("/").filter(Boolean);
+    const marker = parts.findIndex(x => ["embed", "shorts", "live"].includes(x));
+    if (marker >= 0 && parts[marker + 1]) return parts[marker + 1];
+  } catch (_) {}
+  const match = raw.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([A-Za-z0-9_-]{11})/);
+  return match ? match[1] : "";
+}
+
+function detectType(data) {
+  if (data && Array.isArray(data.songs) && Array.isArray(data.folders)) return "manager";
+  if (data && Array.isArray(data.scenarios)) return "watch";
+  throw new Error("지원하는 JSON 형식을 감지하지 못했습니다.");
+}
+
+function appendMeta(memo, meta, enabled) {
+  const base = typeof memo === "string" ? memo.trim() : "";
+  if (!enabled || !meta || Object.keys(meta).length === 0) return base;
+  const line = META_PREFIX + JSON.stringify(meta);
+  return base ? `${base}\n${line}` : line;
+}
+
+function splitMeta(memo) {
+  if (typeof memo !== "string") return { memo: "", meta: {} };
+  const lines = memo.split(/\r?\n/);
+  let meta = {};
+  const kept = [];
+  for (const line of lines) {
+    if (line.startsWith(META_PREFIX)) {
+      try { meta = { ...meta, ...JSON.parse(line.slice(META_PREFIX.length)) }; }
+      catch (_) { kept.push(line); }
+    } else kept.push(line);
+  }
+  return { memo: kept.join("\n").trim(), meta };
+}
+
+function uniqueName(name, used, fallback) {
+  let base = (name || fallback || "이름 없음").trim();
+  let candidate = base, i = 2;
+  while (used.has(candidate)) candidate = `${base} (${i++})`;
+  used.add(candidate);
+  return candidate;
+}
+
+function managerToWatch(data, preserveMeta) {
+  if (!Array.isArray(data.songs)) throw new Error("songs 배열이 없습니다.");
+  const scenarioMap = new Map();
+  const usedNames = new Set();
+
+  for (const folder of (data.folders || [])) {
+    const path = folder.path || folder.name || "기본 시나리오";
+    const name = uniqueName(folder.name || path, usedNames, "기본 시나리오");
+    scenarioMap.set(path, {
+      id: `sc${scenarioMap.size}`,
+      name,
+      bgm: [],
+      sfx: [],
+      _folderMeta: { path, color: folder.color || null }
+    });
+  }
+
+  if (!scenarioMap.size) {
+    scenarioMap.set("__default__", {
+      id: "sc0", name: "기본 시나리오", bgm: [], sfx: [],
+      _folderMeta: { path: "기본 시나리오", color: null }
+    });
+  }
+
+  for (const song of data.songs) {
+    const id = extractYoutubeId(song.youtube_url);
+    if (!id) throw new Error(`YouTube 영상 ID를 찾을 수 없습니다: ${song.title || song.youtube_url}`);
+    const paths = Array.isArray(song.folder_paths) && song.folder_paths.length
+      ? song.folder_paths
+      : ["__default__"];
+
+    for (const path of paths) {
+      if (!scenarioMap.has(path)) {
+        const name = uniqueName(path, usedNames, "기본 시나리오");
+        scenarioMap.set(path, {
+          id: `sc${scenarioMap.size}`, name, bgm: [], sfx: [],
+          _folderMeta: { path, color: null }
+        });
+      }
+      const folderInfo = scenarioMap.get(path)._folderMeta || {};
+      const meta = {
+        tag_names: Array.isArray(song.tag_names) ? song.tag_names : [],
+        thumbnail_url: song.thumbnail_url || "",
+        original_url: song.youtube_url || "",
+        folder_path: path,
+        folder_name: scenarioMap.get(path).name,
+        folder_color: folderInfo.color || ""
+      };
+      scenarioMap.get(path).bgm.push({
+        id,
+        title: song.title || id,
+        loop: false,
+        memo: appendMeta(song.memo, meta, preserveMeta)
+      });
+    }
+  }
+
+  const scenarios = [...scenarioMap.values()].map((scenario, index) => {
+    delete scenario._folderMeta;
+    scenario.id = `sc${index}`;
+    return scenario;
+  });
+
+  return { version: 1, exportedAt: nowIso(), scenarios };
+}
+
+function watchToManager(data, preserveMeta, mergeDuplicates) {
+  if (!Array.isArray(data.scenarios)) throw new Error("scenarios 배열이 없습니다.");
+  const palette = ["#6366f1","#06b6d4","#f43f5e","#22c55e","#f59e0b","#a855f7","#3b82f6","#ec4899"];
+  const folders = [];
+  const folderByScenario = new Map();
+  const tagNames = new Set();
+  const songMap = new Map();
+
+  data.scenarios.forEach((scenario, index) => {
+    let folderPath = scenario.name || `시나리오 ${index + 1}`;
+    let folderColor = palette[index % palette.length];
+
+    const firstWithMeta = [...(scenario.bgm || []), ...(scenario.sfx || [])]
+      .map(item => splitMeta(item.memo).meta)
+      .find(meta => meta && (meta.folder_path || meta.folder_color || meta.folder_name));
+    if (firstWithMeta) {
+      folderPath = firstWithMeta.folder_path || folderPath;
+      folderColor = firstWithMeta.folder_color || folderColor;
+    }
+
+    folders.push({
+      name: (firstWithMeta && firstWithMeta.folder_name) || scenario.name || folderPath,
+      color: folderColor,
+      path: folderPath
+    });
+    folderByScenario.set(scenario, folderPath);
+
+    const collect = (items, kind) => {
+      for (const item of (items || [])) {
+        const parsed = splitMeta(item.memo);
+        const id = extractYoutubeId(item.id) || item.id;
+        if (!id) continue;
+        const key = mergeDuplicates ? id : `${index}:${kind}:${id}:${Math.random()}`;
+        const existing = songMap.get(key);
+        const tags = Array.isArray(parsed.meta.tag_names) ? parsed.meta.tag_names : [];
+        tags.forEach(t => tagNames.add(t));
+        if (kind === "sfx") tagNames.add("SFX");
+        if (item.loop) tagNames.add("반복 재생");
+
+        const memoMeta = {};
+        if (kind === "sfx") memoMeta.original_type = "sfx";
+        if (item.loop) memoMeta.loop = true;
+        const cleanMemo = appendMeta(parsed.memo, memoMeta, preserveMeta);
+        const song = existing || {
+          youtube_url: parsed.meta.original_url || `https://www.youtube.com/watch?v=${id}`,
+          title: item.title || id,
+          thumbnail_url: parsed.meta.thumbnail_url || `https://img.youtube.com/vi/${id}/mqdefault.jpg`,
+          memo: cleanMemo,
+          folder_paths: [],
+          tag_names: []
+        };
+        if (!song.folder_paths.includes(folderPath)) song.folder_paths.push(folderPath);
+        for (const tag of tags) if (!song.tag_names.includes(tag)) song.tag_names.push(tag);
+        if (!song.memo && cleanMemo) song.memo = cleanMemo;
+        songMap.set(key, song);
+      }
+    };
+    collect(scenario.bgm, "bgm");
+    collect(scenario.sfx, "sfx");
+  });
+
+  const tagPalette = ["#6366f1","#f43f5e","#06b6d4","#f59e0b","#22c55e","#a855f7"];
+  return {
+    version: 1,
+    exported_at: nowIso(),
+    source_app: "youtube-bgm-manager",
+    folders,
+    tags: [...tagNames].map((name, i) => ({ name, color: tagPalette[i % tagPalette.length] })),
+    songs: [...songMap.values()]
+  };
+}
+
+function convert() {
+  try {
+    const text = $("inputJson").value.trim();
+    if (!text) throw new Error("원본 JSON을 입력하세요.");
+    const data = JSON.parse(text);
+    const detected = detectType(data);
+    const selected = $("sourceType").value;
+    const source = selected === "auto" ? detected : selected;
+    if (source !== detected) throw new Error("선택한 입력 형식과 실제 JSON 구조가 다릅니다.");
+    let target = $("targetType").value;
+    if (target === source) target = source === "manager" ? "watch" : "manager";
+
+    const preserve = $("preserveMeta").checked;
+    const merge = $("mergeDuplicates").checked;
+    const result = source === "manager"
+      ? managerToWatch(data, preserve)
+      : watchToManager(data, preserve, merge);
+
+    state.result = result;
+    state.filename = target === "watch"
+      ? `trpg-watch-scenarios-${new Date().toISOString().slice(0,10)}.json`
+      : `bgm-library-${new Date().toISOString().slice(0,10)}.json`;
+    $("outputJson").value = JSON.stringify(result, null, 2);
+    $("downloadBtn").disabled = false;
+    setStatus(`${source === "manager" ? "YouTube BGM Manager" : "TRPG Watch"} → ${target === "manager" ? "YouTube BGM Manager" : "TRPG Watch"} 변환 완료`, "ok");
+  } catch (error) {
+    state.result = null;
+    $("outputJson").value = "";
+    $("downloadBtn").disabled = true;
+    setStatus(error.message || String(error), "error");
+  }
+}
+
+function setStatus(message, type = "") {
+  $("status").textContent = message;
+  $("status").className = `status ${type}`;
+}
+
+$("fileInput").addEventListener("change", async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  $("inputJson").value = await file.text();
+  setStatus(`${file.name} 불러옴`);
+  try {
+    const type = detectType(JSON.parse($("inputJson").value));
+    $("sourceType").value = type;
+    $("targetType").value = type === "manager" ? "watch" : "manager";
+  } catch (_) {}
+});
+
+$("convertBtn").addEventListener("click", convert);
+$("downloadBtn").addEventListener("click", () => {
+  if (!state.result) return;
+  const blob = new Blob([JSON.stringify(state.result, null, 2)], {type: "application/json;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = state.filename; a.click();
+  URL.revokeObjectURL(url);
+});
+$("copyBtn").addEventListener("click", async () => {
+  if (!$("outputJson").value) return;
+  await navigator.clipboard.writeText($("outputJson").value);
+  setStatus("변환 결과를 클립보드에 복사했습니다.", "ok");
+});
+$("swapBtn").addEventListener("click", () => {
+  if ($("outputJson").value) $("inputJson").value = $("outputJson").value;
+  const source = $("targetType").value;
+  $("sourceType").value = source;
+  $("targetType").value = source === "manager" ? "watch" : "manager";
+  $("outputJson").value = "";
+  state.result = null;
+  $("downloadBtn").disabled = true;
+  setStatus("직전 결과를 새 원본으로 옮겼습니다.");
+});
+$("sampleBtn").addEventListener("click", () => {
+  $("sourceType").value = "manager";
+  $("targetType").value = "watch";
+  $("inputJson").value = JSON.stringify({
+    version: 1,
+    exported_at: nowIso(),
+    source_app: "youtube-bgm-manager",
+    folders: [{name:"전투", color:"#f43f5e", path:"전투"}],
+    tags: [{name:"웅장", color:"#6366f1"}],
+    songs: [{
+      youtube_url:"https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      title:"샘플 BGM",
+      thumbnail_url:"https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg",
+      memo:"전투 시작",
+      folder_paths:["전투"],
+      tag_names:["웅장"]
+    }]
+  }, null, 2);
+  setStatus("예시 데이터를 불러왔습니다.");
+});
+</script>
+</body>
+</html>
