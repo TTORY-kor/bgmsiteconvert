@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="YouTube BGM Manager와 TRPG Watch JSON 파일을 양방향으로 변환합니다." />
+  <meta name="description" content="협곡 BGM 관리 사이트와 TRPG Watch JSON 파일을 양방향으로 변환합니다." />
   <title>BGM JSON Converter</title>
   <style>
     :root {
@@ -215,6 +215,67 @@
       font-size: 10px;
     }
 
+
+    .group-picker {
+      display: none;
+      padding: 16px 20px;
+      border-top: 1px solid var(--line);
+      background: rgba(15,19,29,.72);
+    }
+    .group-picker.visible { display: block; }
+    .group-picker-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .group-picker-title {
+      font-size: 13px;
+      font-weight: 900;
+    }
+    .group-picker-actions {
+      display: flex;
+      gap: 7px;
+      flex-wrap: wrap;
+    }
+    .group-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill,minmax(190px,1fr));
+      gap: 8px;
+      max-height: 220px;
+      overflow: auto;
+    }
+    .group-option {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+      padding: 10px 11px;
+      border: 1px solid var(--line);
+      border-radius: 11px;
+      background: #121722;
+      color: var(--text);
+      cursor: pointer;
+    }
+    .group-option:hover { border-color: #46516b; }
+    .group-option input { accent-color: var(--accent); flex: 0 0 auto; }
+    .group-option-text { min-width: 0; flex: 1; }
+    .group-option-name {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .group-option-count {
+      display: block;
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
     .drop-overlay {
       position: fixed;
       inset: 0;
@@ -282,14 +343,14 @@
     <div class="drop-card">
       <span class="drop-icon">⇩</span>
       <strong>JSON 파일을 여기에 놓으세요</strong>
-      <span>YouTube BGM Manager와 TRPG Watch 형식을 자동으로 감지합니다.</span>
+      <span>협곡 BGM 관리 사이트와 TRPG Watch 형식을 자동으로 감지합니다.</span>
     </div>
   </div>
   <main class="wrap">
     <header>
       <div class="eyebrow">GitHub Pages · Local only</div>
       <h1>BGM JSON Converter</h1>
-      <p class="lead">YouTube BGM Manager와 TRPG Watch의 내보내기 JSON을 브라우저 안에서 양방향 변환합니다. 파일은 서버로 전송되지 않습니다.</p>
+      <p class="lead">협곡 BGM 관리 사이트에서 내보낸 JSON을 올리고, 원하는 폴더만 골라 TRPG Watch용 JSON으로 변환할 수 있습니다. 반대 방향 변환도 지원하며 파일은 서버로 전송되지 않습니다.</p>
     </header>
 
     <section class="panel">
@@ -297,7 +358,7 @@
         <label>입력 형식
           <select id="sourceType">
             <option value="auto">자동 감지</option>
-            <option value="manager">YouTube BGM Manager</option>
+            <option value="manager">협곡 BGM 관리 사이트</option>
             <option value="watch">TRPG Watch</option>
           </select>
         </label>
@@ -305,7 +366,7 @@
         <label>출력 형식
           <select id="targetType">
             <option value="watch">TRPG Watch</option>
-            <option value="manager">YouTube BGM Manager</option>
+            <option value="manager">협곡 BGM 관리 사이트</option>
           </select>
         </label>
       </div>
@@ -337,6 +398,20 @@
         </section>
       </div>
 
+      <div class="group-picker" id="groupPicker">
+        <div class="group-picker-head">
+          <div>
+            <div class="group-picker-title" id="groupPickerTitle">변환할 폴더 선택</div>
+            <div class="file-meta" id="groupPickerSummary">전체 항목이 선택되어 있습니다.</div>
+          </div>
+          <div class="group-picker-actions">
+            <button class="mini-button" id="selectAllGroupsBtn">전체 선택</button>
+            <button class="mini-button" id="clearGroupsBtn">전체 해제</button>
+          </div>
+        </div>
+        <div class="group-list" id="groupList"></div>
+      </div>
+
       <div class="options">
         <label class="check"><input type="checkbox" id="preserveMeta" checked> 손실 정보는 메모에 보존</label>
         <label class="check"><input type="checkbox" id="mergeDuplicates" checked> 역변환 시 중복 영상 합치기</label>
@@ -356,7 +431,7 @@
     </section>
 
     <section class="notes">
-      <article class="note"><strong>폴더 ↔ 시나리오</strong><p>BGM Manager 폴더는 TRPG Watch 시나리오로 변환됩니다. 여러 폴더에 속한 곡은 각 시나리오에 포함됩니다.</p></article>
+      <article class="note"><strong>폴더 선택 변환</strong><p>협곡 사이트 JSON을 올리면 폴더 목록이 표시됩니다. 필요한 폴더만 체크해 TRPG Watch 시나리오로 변환할 수 있습니다.</p></article>
       <article class="note"><strong>YouTube 주소 ↔ ID</strong><p>watch, youtu.be, shorts, embed 주소를 분석해 영상 ID를 추출합니다. 역변환할 때는 표준 watch 주소를 만듭니다.</p></article>
       <article class="note"><strong>형식 차이 보완</strong><p>태그·폴더 색·반복 재생·SFX처럼 상대 형식에 없는 값은 선택 시 메모의 전용 메타데이터 줄에 보관합니다.</p></article>
       <article class="note"><strong>빠른 조작</strong><p><span class="shortcut">Ctrl</span> + <span class="shortcut">Enter</span> 변환 · <span class="shortcut">Ctrl</span> + <span class="shortcut">S</span> 다운로드 · 입력 후 0.7초 뒤 자동 검증.</p></article>
@@ -370,7 +445,9 @@ const state = {
   filename: "converted.json",
   sourceFilename: "",
   lastDetectedType: null,
-  autoTimer: null
+  autoTimer: null,
+  parsedInput: null,
+  selectedGroups: new Set()
 };
 const STORAGE_KEY = "bgm-json-converter:last-work:v2";
 const META_PREFIX = "[[BGM-CONVERTER-META]]";
@@ -590,7 +667,7 @@ function setDetectedType(type) {
     badge.className = "format-badge";
     return;
   }
-  badge.textContent = type === "manager" ? "YouTube BGM Manager" : "TRPG Watch";
+  badge.textContent = type === "manager" ? "협곡 BGM 관리 사이트" : "TRPG Watch";
   badge.className = "format-badge detected";
 }
 
@@ -637,13 +714,17 @@ function parseInput(showErrors = true) {
   if (!text) {
     setDetectedType(null);
     updateStats();
+    $("groupPicker").classList.remove("visible");
+    state.parsedInput = null;
     return null;
   }
   try {
     const data = JSON.parse(text);
     const type = detectType(data);
+    state.parsedInput = { data, type };
     setDetectedType(type);
     updateStats(data, type);
+    buildGroupPicker(data, type);
     if ($("sourceType").value === "auto") {
       $("targetType").value = type === "manager" ? "watch" : "manager";
     }
@@ -651,6 +732,8 @@ function parseInput(showErrors = true) {
   } catch (error) {
     setDetectedType(null);
     updateStats();
+    $("groupPicker").classList.remove("visible");
+    state.parsedInput = null;
     if (showErrors) {
       const position = /position\s+(\d+)/i.exec(error.message || "");
       let detail = error.message || String(error);
@@ -740,7 +823,7 @@ function scheduleAutoValidation() {
   state.autoTimer = setTimeout(() => {
     const parsed = parseInput(false);
     if (parsed) {
-      setStatus(`${parsed.type === "manager" ? "YouTube BGM Manager" : "TRPG Watch"} 형식 확인 완료`, "ok");
+      setStatus(`${parsed.type === "manager" ? "협곡 BGM 관리 사이트" : "TRPG Watch"} 형식 확인 완료`, "ok");
       saveWork();
     } else if (!$("inputJson").value.trim()) {
       setStatus("");
@@ -749,13 +832,101 @@ function scheduleAutoValidation() {
   }, 700);
 }
 
+
+function buildGroupPicker(data, type) {
+  const picker = $("groupPicker");
+  const list = $("groupList");
+  list.innerHTML = "";
+  state.selectedGroups = new Set();
+
+  const groups = type === "manager"
+    ? (data.folders || []).map(folder => {
+        const key = folder.path || folder.name;
+        const count = (data.songs || []).filter(song => (song.folder_paths || []).includes(key)).length;
+        return { key, name: folder.name || key, count };
+      })
+    : (data.scenarios || []).map((scenario, index) => ({
+        key: scenario.id || `scenario-${index}`,
+        name: scenario.name || `시나리오 ${index + 1}`,
+        count: (scenario.bgm || []).length + (scenario.sfx || []).length
+      }));
+
+  if (!groups.length) {
+    picker.classList.remove("visible");
+    return;
+  }
+
+  $("groupPickerTitle").textContent = type === "manager" ? "변환할 폴더 선택" : "변환할 시나리오 선택";
+
+  groups.forEach(group => {
+    state.selectedGroups.add(group.key);
+    const label = document.createElement("label");
+    label.className = "group-option";
+    label.innerHTML = `
+      <input type="checkbox" value="${escapeHtml(group.key)}" checked>
+      <span class="group-option-text">
+        <span class="group-option-name"></span>
+        <span class="group-option-count">${group.count}곡</span>
+      </span>`;
+    label.querySelector(".group-option-name").textContent = group.name;
+    label.querySelector("input").addEventListener("change", event => {
+      if (event.target.checked) state.selectedGroups.add(group.key);
+      else state.selectedGroups.delete(group.key);
+      updateGroupSummary(groups.length);
+      saveWork();
+    });
+    list.appendChild(label);
+  });
+
+  picker.classList.add("visible");
+  updateGroupSummary(groups.length);
+}
+
+function updateGroupSummary(total) {
+  const selected = state.selectedGroups.size;
+  $("groupPickerSummary").textContent = `${total}개 중 ${selected}개 선택`;
+}
+
+function filterInputBySelectedGroups(data, type) {
+  if (!state.selectedGroups.size) throw new Error("변환할 폴더나 시나리오를 하나 이상 선택하세요.");
+
+  if (type === "manager") {
+    const selected = state.selectedGroups;
+    const folders = (data.folders || []).filter(folder => selected.has(folder.path || folder.name));
+    const selectedPaths = new Set(folders.map(folder => folder.path || folder.name));
+    const songs = (data.songs || [])
+      .map(song => ({
+        ...song,
+        folder_paths: (song.folder_paths || []).filter(path => selectedPaths.has(path))
+      }))
+      .filter(song => song.folder_paths.length > 0);
+    const usedTags = new Set(songs.flatMap(song => song.tag_names || []));
+    const tags = (data.tags || []).filter(tag => usedTags.has(tag.name));
+    return { ...data, folders, tags, songs };
+  }
+
+  const scenarios = (data.scenarios || []).filter((scenario, index) =>
+    state.selectedGroups.has(scenario.id || `scenario-${index}`)
+  );
+  return { ...data, scenarios };
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
 function convert() {
   try {
     const text = $("inputJson").value.trim();
     if (!text) throw new Error("원본 JSON을 입력하세요.");
     const parsed = parseInput(false);
     if (!parsed) throw new Error("JSON 문법이나 파일 형식을 확인하세요.");
-    const { data, type: detected } = parsed;
+    const { data: originalData, type: detected } = parsed;
+    const data = filterInputBySelectedGroups(originalData, detected);
     const selected = $("sourceType").value;
     const source = selected === "auto" ? detected : selected;
     if (source !== detected) throw new Error("선택한 입력 형식과 실제 JSON 구조가 다릅니다.");
@@ -774,7 +945,7 @@ function convert() {
       : `bgm-library-${new Date().toISOString().slice(0,10)}.json`;
     $("outputJson").value = JSON.stringify(result, null, 2);
     $("downloadBtn").disabled = false;
-    setStatus(`${source === "manager" ? "YouTube BGM Manager" : "TRPG Watch"} → ${target === "manager" ? "YouTube BGM Manager" : "TRPG Watch"} 변환 완료`, "ok");
+    setStatus(`${source === "manager" ? "협곡 BGM 관리 사이트" : "TRPG Watch"} → ${target === "manager" ? "협곡 BGM 관리 사이트" : "TRPG Watch"} 변환 완료`, "ok");
     saveWork();
     showToast("변환이 완료되었습니다.");
   } catch (error) {
@@ -813,7 +984,7 @@ async function loadJsonFile(file) {
   $("downloadBtn").disabled = true;
   setDetectedType(type);
   updateStats(data, type);
-  setStatus(`${file.name} 불러옴 · ${type === "manager" ? "YouTube BGM Manager" : "TRPG Watch"} 형식 감지`, "ok");
+  setStatus(`${file.name} 불러옴 · ${type === "manager" ? "협곡 BGM 관리 사이트" : "TRPG Watch"} 형식 감지`, "ok");
   saveWork();
   convert();
 }
@@ -910,6 +1081,20 @@ $("swapBtn").addEventListener("click", () => {
   state.result = null;
   $("downloadBtn").disabled = true;
   setStatus("직전 결과를 새 원본으로 옮겼습니다.");
+});
+
+
+$("selectAllGroupsBtn").addEventListener("click", () => {
+  document.querySelectorAll("#groupList input[type=checkbox]").forEach(input => {
+    input.checked = true;
+    state.selectedGroups.add(input.value);
+  });
+  updateGroupSummary(document.querySelectorAll("#groupList input[type=checkbox]").length);
+});
+$("clearGroupsBtn").addEventListener("click", () => {
+  document.querySelectorAll("#groupList input[type=checkbox]").forEach(input => input.checked = false);
+  state.selectedGroups.clear();
+  updateGroupSummary(document.querySelectorAll("#groupList input[type=checkbox]").length);
 });
 
 $("inputJson").addEventListener("input", scheduleAutoValidation);
