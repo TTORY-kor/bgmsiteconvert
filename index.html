@@ -1,1154 +1,322 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="협곡 BGM 관리 사이트와 TRPG Watch JSON 파일을 양방향으로 변환합니다." />
-  <title>BGM JSON Converter</title>
-  <style>
-    :root {
-      color-scheme: dark;
-      --bg: #0b0d12;
-      --panel: #131722;
-      --panel-2: #191f2d;
-      --line: #2b3448;
-      --text: #f5f7ff;
-      --muted: #9da8bd;
-      --accent: #8b7cff;
-      --accent-2: #5dd6c0;
-      --danger: #ff7285;
-      --shadow: 0 18px 60px rgba(0,0,0,.35);
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      font-family: Pretendard, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background:
-        radial-gradient(circle at 15% 0%, rgba(139,124,255,.15), transparent 32rem),
-        radial-gradient(circle at 100% 10%, rgba(93,214,192,.10), transparent 28rem),
-        var(--bg);
-      color: var(--text);
-    }
-    button, input, select, textarea { font: inherit; }
-    .wrap { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 54px 0 80px; }
-    header { margin-bottom: 28px; }
-    .eyebrow { color: var(--accent-2); font-size: 13px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
-    h1 { margin: 8px 0 10px; font-size: clamp(32px, 5vw, 58px); line-height: 1.05; letter-spacing: -.045em; }
-    .lead { margin: 0; max-width: 760px; color: var(--muted); line-height: 1.7; }
-    .panel {
-      border: 1px solid var(--line);
-      background: rgba(19,23,34,.88);
-      backdrop-filter: blur(14px);
-      border-radius: 22px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-    .controls {
-      display: grid;
-      grid-template-columns: 1.1fr auto 1.1fr;
-      gap: 14px;
-      align-items: end;
-      padding: 22px;
-      border-bottom: 1px solid var(--line);
-    }
-    label { display: grid; gap: 8px; color: var(--muted); font-size: 13px; font-weight: 700; }
-    select, input[type="text"] {
-      width: 100%;
-      min-height: 46px;
-      padding: 0 14px;
-      color: var(--text);
-      background: var(--panel-2);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      outline: none;
-    }
-    select:focus, input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(139,124,255,.14); }
-    .swap { height: 46px; min-width: 46px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); background: var(--panel-2); cursor: pointer; font-size: 20px; }
-    .workspace { display: grid; grid-template-columns: 1fr 1fr; min-height: 510px; }
-    .column { min-width: 0; display: flex; flex-direction: column; }
-    .column + .column { border-left: 1px solid var(--line); }
-    .column-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 18px; border-bottom: 1px solid var(--line); }
-    .column-title { font-weight: 800; }
-    .file-button, .secondary, .primary {
-      border: 0;
-      border-radius: 11px;
-      padding: 10px 14px;
-      font-weight: 800;
-      cursor: pointer;
-    }
-    .file-button, .secondary { color: var(--text); background: #232a3b; }
-    .primary { color: #0d1020; background: linear-gradient(135deg, var(--accent-2), #a2ffe8); }
-    textarea {
-      flex: 1;
-      width: 100%;
-      min-height: 440px;
-      resize: vertical;
-      border: 0;
-      outline: none;
-      padding: 18px;
-      color: #dce5ff;
-      background: #0f131d;
-      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-      font-size: 13px;
-      line-height: 1.65;
-      tab-size: 2;
-    }
-    .options { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 16px 20px; border-top: 1px solid var(--line); }
-    .check { display: inline-flex; grid-template-columns: auto 1fr; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
-    .check input { accent-color: var(--accent); }
-    .actions { margin-left: auto; display: flex; gap: 10px; }
-    .status { min-height: 24px; padding: 0 20px 18px; color: var(--muted); font-size: 13px; }
-    .status.ok { color: var(--accent-2); }
-    .status.error { color: var(--danger); }
-    .notes {
-      margin-top: 22px;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 12px;
-    }
-    .note { padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: rgba(19,23,34,.72); }
-    .note strong { display:block; margin-bottom: 7px; }
-    .note p { margin:0; color: var(--muted); font-size: 13px; line-height: 1.65; }
-
-
-    .quickbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--line);
-      background: rgba(15, 19, 29, .72);
-    }
-    .quickbar .spacer { flex: 1; }
-    .mini-button {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 8px 11px;
-      color: var(--text);
-      background: #1a2030;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 800;
-    }
-    .mini-button:hover, .file-button:hover, .secondary:hover, .swap:hover {
-      border-color: #46516b;
-      transform: translateY(-1px);
-    }
-    .file-meta {
-      min-width: 0;
-      color: var(--muted);
-      font-size: 12px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .stats {
-      display: none;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 10px;
-      padding: 14px 20px;
-      border-top: 1px solid var(--line);
-      background: rgba(15, 19, 29, .72);
-    }
-    .stats.visible { display: grid; }
-    .stat {
-      padding: 12px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: #121722;
-    }
-    .stat-value {
-      display: block;
-      margin-bottom: 3px;
-      font-size: 20px;
-      font-weight: 900;
-    }
-    .stat-label {
-      color: var(--muted);
-      font-size: 11px;
-    }
-    .format-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 9px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      color: var(--muted);
-      background: #171d2a;
-      font-size: 11px;
-      font-weight: 800;
-    }
-    .format-badge.detected {
-      color: var(--accent-2);
-      border-color: rgba(93, 214, 192, .35);
-    }
-    .toast {
-      position: fixed;
-      right: 20px;
-      bottom: 20px;
-      z-index: 1200;
-      max-width: min(390px, calc(100% - 40px));
-      padding: 13px 16px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      color: var(--text);
-      background: #171d2a;
-      box-shadow: var(--shadow);
-      opacity: 0;
-      transform: translateY(12px);
-      pointer-events: none;
-      transition: .18s ease;
-    }
-    .toast.show { opacity: 1; transform: translateY(0); }
-    .toast.error { border-color: rgba(255, 114, 133, .55); }
-    .shortcut {
-      color: #c8d0e3;
-      border: 1px solid var(--line);
-      border-bottom-width: 2px;
-      border-radius: 5px;
-      padding: 1px 5px;
-      background: #10151f;
-      font-family: inherit;
-      font-size: 10px;
-    }
-
-
-    .group-picker {
-      display: none;
-      padding: 16px 20px;
-      border-top: 1px solid var(--line);
-      background: rgba(15,19,29,.72);
-    }
-    .group-picker.visible { display: block; }
-    .group-picker-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 10px;
-    }
-    .group-picker-title {
-      font-size: 13px;
-      font-weight: 900;
-    }
-    .group-picker-actions {
-      display: flex;
-      gap: 7px;
-      flex-wrap: wrap;
-    }
-    .group-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fill,minmax(190px,1fr));
-      gap: 8px;
-      max-height: 220px;
-      overflow: auto;
-    }
-    .group-option {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      min-width: 0;
-      padding: 10px 11px;
-      border: 1px solid var(--line);
-      border-radius: 11px;
-      background: #121722;
-      color: var(--text);
-      cursor: pointer;
-    }
-    .group-option:hover { border-color: #46516b; }
-    .group-option input { accent-color: var(--accent); flex: 0 0 auto; }
-    .group-option-text { min-width: 0; flex: 1; }
-    .group-option-name {
-      display: block;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-size: 12px;
-      font-weight: 800;
-    }
-    .group-option-count {
-      display: block;
-      margin-top: 2px;
-      color: var(--muted);
-      font-size: 10px;
-    }
-
-    .drop-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 1000;
-      display: grid;
-      place-items: center;
-      padding: 24px;
-      background: rgba(7, 9, 14, .78);
-      backdrop-filter: blur(12px);
-      opacity: 0;
-      visibility: hidden;
-      transition: opacity .18s ease, visibility .18s ease;
-      pointer-events: none;
-    }
-    .drop-overlay.active {
-      opacity: 1;
-      visibility: visible;
-    }
-    .drop-card {
-      width: min(560px, 100%);
-      padding: 48px 28px;
-      border: 2px dashed var(--accent);
-      border-radius: 24px;
-      background: rgba(19, 23, 34, .96);
-      box-shadow: var(--shadow);
-      text-align: center;
-    }
-    .drop-icon {
-      display: block;
-      margin-bottom: 14px;
-      font-size: 54px;
-      line-height: 1;
-    }
-    .drop-card strong {
-      display: block;
-      margin-bottom: 8px;
-      font-size: 22px;
-    }
-    .drop-card span {
-      color: var(--muted);
-      font-size: 14px;
-    }
-    body.dragging {
-      overflow: hidden;
-    }
-
-    @media (max-width: 800px) {
-      .wrap { width: min(100% - 20px, 1180px); padding-top: 30px; }
-      .controls { grid-template-columns: 1fr; }
-      .swap { width: 100%; }
-      .workspace { grid-template-columns: 1fr; }
-      .column + .column { border-left: 0; border-top: 1px solid var(--line); }
-      .notes { grid-template-columns: 1fr; }
-      .actions { width: 100%; margin-left: 0; }
-      .actions button { flex: 1; }
-      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .quickbar .spacer { display: none; }
-      .file-meta { width: 100%; order: 3; }
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BGM JSON 통합 변환기</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#0b1220;--panel:#111a2a;--panel2:#172235;--panel3:#1e2b42;
+  --line:#2b3a54;--text:#f8fafc;--muted:#94a3b8;--blue:#3b82f6;
+  --blue2:#2563eb;--green:#34d399;--red:#fb7185;--shadow:0 18px 60px rgba(0,0,0,.35)
+}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:Pretendard,"Noto Sans KR",system-ui,sans-serif;background:
+radial-gradient(circle at 10% 0,rgba(59,130,246,.15),transparent 28rem),var(--bg);color:var(--text)}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.wrap{width:min(1180px,calc(100% - 28px));margin:auto;padding:42px 0 70px}
+header{margin-bottom:22px}
+.eyebrow{color:#60a5fa;font-size:12px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}
+h1{margin:7px 0 9px;font-size:clamp(31px,5vw,54px);letter-spacing:-.05em;line-height:1.05}
+.lead{margin:0;max-width:850px;color:var(--muted);line-height:1.75}
+.panel{border:1px solid var(--line);background:rgba(17,26,42,.9);border-radius:22px;overflow:hidden;box-shadow:var(--shadow)}
+.dropzone{margin:20px;border:1.5px dashed #476182;border-radius:17px;padding:28px 20px;text-align:center;background:rgba(23,34,53,.72);transition:.18s}
+.dropzone.drag{border-color:var(--blue);background:rgba(59,130,246,.11)}
+.dropzone strong{display:block;font-size:17px;margin-bottom:6px}
+.dropzone span{color:var(--muted);font-size:13px}
+.file-btn,.btn{border:0;border-radius:11px;padding:10px 14px;font-weight:850}
+.file-btn{display:inline-block;margin-top:15px;background:var(--blue);color:white}
+.files{display:flex;flex-wrap:wrap;gap:8px;padding:0 20px 18px}
+.file-chip{display:flex;align-items:center;gap:8px;max-width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+.file-chip b{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.file-chip small{color:var(--muted);font-size:10px}
+.file-chip button{border:0;background:transparent;color:var(--muted)}
+.workspace{display:grid;grid-template-columns:320px 1fr;border-top:1px solid var(--line)}
+.side{padding:19px;border-right:1px solid var(--line);min-width:0}
+.main{padding:19px;min-width:0}
+.section-title{font-size:13px;font-weight:900;margin-bottom:10px}
+.control{display:grid;gap:7px;margin-bottom:15px}
+.control label{color:var(--muted);font-size:11px;font-weight:800}
+select{width:100%;height:43px;padding:0 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--text);outline:none}
+select:focus{border-color:var(--blue)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:15px 0}
+.stat{padding:12px;border:1px solid var(--line);border-radius:11px;background:var(--panel2)}
+.stat b{display:block;font-size:20px}
+.stat span{color:var(--muted);font-size:10px}
+.note{padding:12px;border-radius:11px;background:rgba(59,130,246,.09);color:#bfdbfe;font-size:11px;line-height:1.65}
+.folder-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.folder-actions{display:flex;gap:6px}
+.mini{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text);font-size:10px;font-weight:800}
+.folder-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px;max-height:340px;overflow:auto}
+.folder{display:flex;gap:9px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);min-width:0}
+.folder input{accent-color:var(--blue)}
+.folder-text{min-width:0;flex:1}
+.folder-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:850}
+.folder-count{color:var(--muted);font-size:10px}
+.preview{margin-top:16px}
+textarea{width:100%;height:250px;resize:vertical;padding:14px;border:1px solid var(--line);border-radius:12px;background:#0c1422;color:#dbeafe;font:12px/1.6 Consolas,monospace;outline:none}
+.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}
+.btn.primary{background:linear-gradient(135deg,var(--blue),var(--blue2));color:white}
+.btn.secondary{background:var(--panel3);color:var(--text)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.status{min-height:22px;margin-top:10px;color:var(--muted);font-size:12px}
+.status.ok{color:var(--green)}.status.error{color:var(--red)}
+.overlay{position:fixed;inset:0;display:none;place-items:center;background:rgba(5,10,18,.75);backdrop-filter:blur(8px);z-index:50}
+.overlay.show{display:grid}.overlay-card{padding:40px;border:2px dashed var(--blue);border-radius:20px;background:var(--panel);text-align:center}
+@media(max-width:820px){.workspace{grid-template-columns:1fr}.side{border-right:0;border-bottom:1px solid var(--line)}}
+</style>
 </head>
 <body>
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <div class="drop-overlay" id="dropOverlay" aria-hidden="true">
-    <div class="drop-card">
-      <span class="drop-icon">⇩</span>
-      <strong>JSON 파일을 여기에 놓으세요</strong>
-      <span>협곡 BGM 관리 사이트와 TRPG Watch 형식을 자동으로 감지합니다.</span>
-    </div>
-  </div>
-  <main class="wrap">
-    <header>
-      <div class="eyebrow">GitHub Pages · Local only</div>
-      <h1>BGM JSON Converter</h1>
-      <p class="lead">협곡 BGM 관리 사이트에서 내보낸 JSON을 올리고, 원하는 폴더만 골라 TRPG Watch용 JSON으로 변환할 수 있습니다. 반대 방향 변환도 지원하며 파일은 서버로 전송되지 않습니다.</p>
-    </header>
-
-    <section class="panel">
-      <div class="controls">
-        <label>입력 형식
-          <select id="sourceType">
-            <option value="auto">자동 감지</option>
-            <option value="manager">협곡 BGM 관리 사이트</option>
-            <option value="watch">TRPG Watch</option>
-          </select>
-        </label>
-        <button class="swap" id="swapBtn" title="입력·출력 교환">⇄</button>
-        <label>출력 형식
-          <select id="targetType">
-            <option value="watch">TRPG Watch</option>
-            <option value="manager">협곡 BGM 관리 사이트</option>
-          </select>
-        </label>
-      </div>
-
-      <div class="quickbar">
-        <span class="format-badge" id="formatBadge">형식 미감지</span>
-        <span class="file-meta" id="fileMeta">파일을 선택하거나 JSON을 붙여넣으세요.</span>
-        <span class="spacer"></span>
-        <button class="mini-button" id="restoreBtn" title="최근 작업 복구">최근 작업</button>
-        <button class="mini-button" id="formatBtn" title="JSON 들여쓰기 정리">JSON 정리</button>
-        <button class="mini-button" id="clearBtn" title="입력과 결과 초기화">초기화</button>
-      </div>
-
-      <div class="workspace">
-        <section class="column">
-          <div class="column-head">
-            <span class="column-title">원본 JSON</span>
-            <label class="file-button">파일 선택<input id="fileInput" type="file" accept=".json,application/json" hidden></label>
-          </div>
-          <textarea id="inputJson" spellcheck="false" placeholder="JSON을 붙여넣거나 파일을 선택하세요."></textarea>
-        </section>
-
-        <section class="column">
-          <div class="column-head">
-            <span class="column-title">변환 결과</span>
-            <button class="secondary" id="copyBtn">복사</button>
-          </div>
-          <textarea id="outputJson" spellcheck="false" readonly placeholder="변환 결과가 여기에 표시됩니다."></textarea>
-        </section>
-      </div>
-
-      <div class="group-picker" id="groupPicker">
-        <div class="group-picker-head">
-          <div>
-            <div class="group-picker-title" id="groupPickerTitle">변환할 폴더 선택</div>
-            <div class="file-meta" id="groupPickerSummary">전체 항목이 선택되어 있습니다.</div>
-          </div>
-          <div class="group-picker-actions">
-            <button class="mini-button" id="selectAllGroupsBtn">전체 선택</button>
-            <button class="mini-button" id="clearGroupsBtn">전체 해제</button>
-          </div>
-        </div>
-        <div class="group-list" id="groupList"></div>
-      </div>
-
-      <div class="options">
-        <label class="check"><input type="checkbox" id="preserveMeta" checked> 손실 정보는 메모에 보존</label>
-        <label class="check"><input type="checkbox" id="mergeDuplicates" checked> 역변환 시 중복 영상 합치기</label>
-        <div class="actions">
-          <button class="secondary" id="sampleBtn">예시 불러오기</button>
-          <button class="primary" id="convertBtn">변환하기</button>
-          <button class="primary" id="downloadBtn" disabled>JSON 다운로드</button>
-        </div>
-      </div>
-      <div class="status" id="status"></div>
-      <div class="stats" id="stats">
-        <div class="stat"><span class="stat-value" id="statGroups">0</span><span class="stat-label" id="statGroupsLabel">폴더/시나리오</span></div>
-        <div class="stat"><span class="stat-value" id="statTracks">0</span><span class="stat-label">BGM</span></div>
-        <div class="stat"><span class="stat-value" id="statSfx">0</span><span class="stat-label">SFX</span></div>
-        <div class="stat"><span class="stat-value" id="statWarnings">0</span><span class="stat-label">주의 항목</span></div>
-      </div>
-    </section>
-
-    <section class="notes">
-      <article class="note"><strong>폴더 선택 변환</strong><p>협곡 사이트 JSON을 올리면 폴더 목록이 표시됩니다. 필요한 폴더만 체크해 TRPG Watch 시나리오로 변환할 수 있습니다.</p></article>
-      <article class="note"><strong>YouTube 주소 ↔ ID</strong><p>watch, youtu.be, shorts, embed 주소를 분석해 영상 ID를 추출합니다. 역변환할 때는 표준 watch 주소를 만듭니다.</p></article>
-      <article class="note"><strong>형식 차이 보완</strong><p>태그·폴더 색·반복 재생·SFX처럼 상대 형식에 없는 값은 선택 시 메모의 전용 메타데이터 줄에 보관합니다.</p></article>
-      <article class="note"><strong>빠른 조작</strong><p><span class="shortcut">Ctrl</span> + <span class="shortcut">Enter</span> 변환 · <span class="shortcut">Ctrl</span> + <span class="shortcut">S</span> 다운로드 · 입력 후 0.7초 뒤 자동 검증.</p></article>
-    </section>
-  </main>
-
+<div class="overlay" id="overlay"><div class="overlay-card"><strong>JSON 파일을 놓으세요</strong><div style="color:var(--muted);margin-top:7px">여러 파일을 한 번에 놓아도 됩니다.</div></div></div>
+<main class="wrap">
+<header>
+<div class="eyebrow">Three-way BGM JSON converter</div>
+<h1>BGM JSON 통합 변환기</h1>
+<p class="lead">TRPG Watch JSON, 협곡 전체 라이브러리 JSON, 협곡 일부 폴더 JSON을 서로 변환합니다. 여러 협곡 JSON을 동시에 올리면 하나의 라이브러리로 병합할 수 있습니다.</p>
+</header>
+<section class="panel">
+<div class="dropzone" id="dropzone">
+<strong>JSON 파일을 올리세요</strong>
+<span>TRPG Watch와 협곡 BGM 관리 사이트 형식을 자동 감지합니다. 여러 파일 선택도 지원합니다.</span>
+<label class="file-btn">파일 선택<input id="fileInput" type="file" accept=".json,application/json" multiple hidden></label>
+</div>
+<div class="files" id="files"></div>
+<div class="workspace">
+<aside class="side">
+<div class="section-title">출력 설정</div>
+<div class="control">
+<label>변환 결과</label>
+<select id="target">
+<option value="watch">TRPG Watch JSON</option>
+<option value="canyon-selected">협곡 일부 폴더 JSON</option>
+<option value="canyon-all">협곡 전체·병합 JSON</option>
+</select>
+</div>
+<div class="control" id="scenarioNameWrap" style="display:none">
+<label>폴더가 없는 곡의 시나리오명</label>
+<input id="scenarioName" value="기본 시나리오" style="height:43px;padding:0 11px;border:1px solid var(--line);border-radius:10px;background:var(--panel2);color:var(--text)">
+</div>
+<div class="stats">
+<div class="stat"><b id="fileCount">0</b><span>입력 파일</span></div>
+<div class="stat"><b id="folderCount">0</b><span>통합 폴더</span></div>
+<div class="stat"><b id="songCount">0</b><span>통합 곡</span></div>
+<div class="stat"><b id="tagCount">0</b><span>통합 태그</span></div>
+</div>
+<div class="note">
+<b>세 파일 처리 방식</b><br>
+TRPG Watch는 시나리오를 폴더로 읽습니다. 협곡 전체·일부 폴더 파일은 같은 구조이므로 여러 개를 올리면 영상 ID 기준으로 합치고, 폴더와 태그를 병합합니다.
+</div>
+</aside>
+<section class="main">
+<div class="folder-head">
+<div>
+<div class="section-title" style="margin:0">포함할 폴더·시나리오</div>
+<div id="selectedSummary" style="color:var(--muted);font-size:11px;margin-top:3px">파일을 올려주세요.</div>
+</div>
+<div class="folder-actions">
+<button class="mini" id="allBtn">전체 선택</button>
+<button class="mini" id="noneBtn">전체 해제</button>
+</div>
+</div>
+<div class="folder-list" id="folderList"></div>
+<div class="preview">
+<div class="section-title">결과 미리보기</div>
+<textarea id="output" readonly placeholder="변환 후 결과가 표시됩니다."></textarea>
+<div class="actions">
+<button class="btn primary" id="convertBtn" disabled>변환하기</button>
+<button class="btn secondary" id="copyBtn" disabled>복사</button>
+<button class="btn primary" id="downloadBtn" disabled>JSON 다운로드</button>
+<button class="btn secondary" id="clearBtn">모두 지우기</button>
+</div>
+<div class="status" id="status"></div>
+</div>
+</section>
+</div>
+</section>
+</main>
 <script>
-const $ = (id) => document.getElementById(id);
-const state = {
-  result: null,
-  filename: "converted.json",
-  sourceFilename: "",
-  lastDetectedType: null,
-  autoTimer: null,
-  parsedInput: null,
-  selectedGroups: new Set()
-};
-const STORAGE_KEY = "bgm-json-converter:last-work:v2";
-const META_PREFIX = "[[BGM-CONVERTER-META]]";
+const $=id=>document.getElementById(id);
+const state={files:[],library:null,selected:new Set(),result:null,filename:"converted.json"};
 
-function nowIso() { return new Date().toISOString(); }
-
-function extractYoutubeId(value) {
-  if (!value || typeof value !== "string") return "";
-  const raw = value.trim();
-  if (/^[A-Za-z0-9_-]{11}$/.test(raw)) return raw;
-  try {
-    const url = new URL(raw);
-    if (url.hostname.includes("youtu.be")) return url.pathname.split("/").filter(Boolean)[0] || "";
-    if (url.searchParams.get("v")) return url.searchParams.get("v");
-    const parts = url.pathname.split("/").filter(Boolean);
-    const marker = parts.findIndex(x => ["embed", "shorts", "live"].includes(x));
-    if (marker >= 0 && parts[marker + 1]) return parts[marker + 1];
-  } catch (_) {}
-  const match = raw.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([A-Za-z0-9_-]{11})/);
-  return match ? match[1] : "";
+function ytId(value){
+  if(!value||typeof value!=="string")return "";
+  const raw=value.trim();
+  if(/^[A-Za-z0-9_-]{11}$/.test(raw))return raw;
+  try{
+    const u=new URL(raw);
+    if(u.hostname.includes("youtu.be"))return u.pathname.split("/").filter(Boolean)[0]||"";
+    if(u.searchParams.get("v"))return u.searchParams.get("v");
+    const p=u.pathname.split("/").filter(Boolean),i=p.findIndex(x=>["embed","shorts","live"].includes(x));
+    if(i>=0)return p[i+1]||"";
+  }catch{}
+  return (raw.match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([A-Za-z0-9_-]{11})/)||[])[1]||"";
 }
-
-function detectType(data) {
-  if (data && Array.isArray(data.songs) && Array.isArray(data.folders)) return "manager";
-  if (data && Array.isArray(data.scenarios)) return "watch";
-  throw new Error("지원하는 JSON 형식을 감지하지 못했습니다.");
-}
-
-function appendMeta(memo, meta, enabled) {
-  const base = typeof memo === "string" ? memo.trim() : "";
-  if (!enabled || !meta || Object.keys(meta).length === 0) return base;
-  const line = META_PREFIX + JSON.stringify(meta);
-  return base ? `${base}\n${line}` : line;
-}
-
-function splitMeta(memo) {
-  if (typeof memo !== "string") return { memo: "", meta: {} };
-  const lines = memo.split(/\r?\n/);
-  let meta = {};
-  const kept = [];
-  for (const line of lines) {
-    if (line.startsWith(META_PREFIX)) {
-      try { meta = { ...meta, ...JSON.parse(line.slice(META_PREFIX.length)) }; }
-      catch (_) { kept.push(line); }
-    } else kept.push(line);
+function colorFor(i){return ["#3b82f6","#06b6d4","#8b5cf6","#22c55e","#f59e0b","#ec4899"][i%6]}
+function parseMeta(memo){
+  const lines=String(memo||"").split(/\r?\n/),meta={},kept=[];
+  for(const line of lines){
+    if(line.startsWith("[[BGM-CONVERTER-META]]")){
+      try{Object.assign(meta,JSON.parse(line.slice("[[BGM-CONVERTER-META]]".length)))}catch{kept.push(line)}
+    }else kept.push(line)
   }
-  return { memo: kept.join("\n").trim(), meta };
+  return {memo:kept.join("\n").trim(),meta}
 }
-
-function uniqueName(name, used, fallback) {
-  let base = (name || fallback || "이름 없음").trim();
-  let candidate = base, i = 2;
-  while (used.has(candidate)) candidate = `${base} (${i++})`;
-  used.add(candidate);
-  return candidate;
+function detect(data){
+  if(data&&Array.isArray(data.scenarios))return "watch";
+  if(data&&Array.isArray(data.songs)&&Array.isArray(data.folders))return "canyon";
+  throw new Error("지원하지 않는 JSON 구조입니다.");
 }
-
-function managerToWatch(data, preserveMeta) {
-  if (!Array.isArray(data.songs)) throw new Error("songs 배열이 없습니다.");
-  const scenarioMap = new Map();
-  const usedNames = new Set();
-
-  for (const folder of (data.folders || [])) {
-    const path = folder.path || folder.name || "기본 시나리오";
-    const name = uniqueName(folder.name || path, usedNames, "기본 시나리오");
-    scenarioMap.set(path, {
-      id: `sc${scenarioMap.size}`,
-      name,
-      bgm: [],
-      sfx: [],
-      _folderMeta: { path, color: folder.color || null }
-    });
-  }
-
-  if (!scenarioMap.size) {
-    scenarioMap.set("__default__", {
-      id: "sc0", name: "기본 시나리오", bgm: [], sfx: [],
-      _folderMeta: { path: "기본 시나리오", color: null }
-    });
-  }
-
-  for (const song of data.songs) {
-    const id = extractYoutubeId(song.youtube_url);
-    if (!id) throw new Error(`YouTube 영상 ID를 찾을 수 없습니다: ${song.title || song.youtube_url}`);
-    const paths = Array.isArray(song.folder_paths) && song.folder_paths.length
-      ? song.folder_paths
-      : ["__default__"];
-
-    for (const path of paths) {
-      if (!scenarioMap.has(path)) {
-        const name = uniqueName(path, usedNames, "기본 시나리오");
-        scenarioMap.set(path, {
-          id: `sc${scenarioMap.size}`, name, bgm: [], sfx: [],
-          _folderMeta: { path, color: null }
-        });
-      }
-      const folderInfo = scenarioMap.get(path)._folderMeta || {};
-      const meta = {
-        tag_names: Array.isArray(song.tag_names) ? song.tag_names : [],
-        thumbnail_url: song.thumbnail_url || "",
-        original_url: song.youtube_url || "",
-        folder_path: path,
-        folder_name: scenarioMap.get(path).name,
-        folder_color: folderInfo.color || ""
-      };
-      scenarioMap.get(path).bgm.push({
-        id,
-        title: song.title || id,
-        loop: false,
-        memo: appendMeta(song.memo, meta, preserveMeta)
+function canonicalFrom(data,type){
+  const folders=[],tags=[],songs=[];
+  if(type==="canyon"){
+    (data.folders||[]).forEach((f,i)=>folders.push({path:f.path||f.name||`폴더 ${i+1}`,name:f.name||f.path||`폴더 ${i+1}`,color:f.color||colorFor(i)}));
+    (data.tags||[]).forEach((t,i)=>tags.push({name:t.name,color:t.color||colorFor(i)}));
+    (data.songs||[]).forEach(s=>{
+      const id=ytId(s.youtube_url);if(!id)return;
+      songs.push({id,url:s.youtube_url||`https://www.youtube.com/watch?v=${id}`,title:s.title||id,thumbnail:s.thumbnail_url||`https://img.youtube.com/vi/${id}/mqdefault.jpg`,memo:s.memo||"",folders:[...(s.folder_paths||[])],tags:[...(s.tag_names||[])],loop:false,type:"bgm"})
+    })
+  }else{
+    (data.scenarios||[]).forEach((sc,si)=>{
+      const path=sc.name||`시나리오 ${si+1}`;
+      folders.push({path,name:path,color:colorFor(si)});
+      const collect=(items,kind)=>(items||[]).forEach(item=>{
+        const id=ytId(item.id)||item.id;if(!/^[A-Za-z0-9_-]{11}$/.test(id))return;
+        const parsed=parseMeta(item.memo),mt=parsed.meta;
+        songs.push({id,url:mt.original_url||`https://www.youtube.com/watch?v=${id}`,title:item.title||id,thumbnail:mt.thumbnail_url||`https://img.youtube.com/vi/${id}/mqdefault.jpg`,memo:parsed.memo,folders:[mt.folder_path||path],tags:[...(Array.isArray(mt.tag_names)?mt.tag_names:[]),...(kind==="sfx"?["SFX"]:[]),...(item.loop?["반복 재생"]:[])],loop:!!item.loop,type:kind})
       });
-    }
+      collect(sc.bgm,"bgm");collect(sc.sfx,"sfx");
+    })
   }
-
-  const scenarios = [...scenarioMap.values()].map((scenario, index) => {
-    delete scenario._folderMeta;
-    scenario.id = `sc${index}`;
-    return scenario;
-  });
-
-  return { version: 1, exportedAt: nowIso(), scenarios };
+  return {folders,tags,songs}
 }
-
-function watchToManager(data, preserveMeta, mergeDuplicates) {
-  if (!Array.isArray(data.scenarios)) throw new Error("scenarios 배열이 없습니다.");
-  const palette = ["#6366f1","#06b6d4","#f43f5e","#22c55e","#f59e0b","#a855f7","#3b82f6","#ec4899"];
-  const folders = [];
-  const folderByScenario = new Map();
-  const tagNames = new Set();
-  const songMap = new Map();
-
-  data.scenarios.forEach((scenario, index) => {
-    let folderPath = scenario.name || `시나리오 ${index + 1}`;
-    let folderColor = palette[index % palette.length];
-
-    const firstWithMeta = [...(scenario.bgm || []), ...(scenario.sfx || [])]
-      .map(item => splitMeta(item.memo).meta)
-      .find(meta => meta && (meta.folder_path || meta.folder_color || meta.folder_name));
-    if (firstWithMeta) {
-      folderPath = firstWithMeta.folder_path || folderPath;
-      folderColor = firstWithMeta.folder_color || folderColor;
-    }
-
-    folders.push({
-      name: (firstWithMeta && firstWithMeta.folder_name) || scenario.name || folderPath,
-      color: folderColor,
-      path: folderPath
-    });
-    folderByScenario.set(scenario, folderPath);
-
-    const collect = (items, kind) => {
-      for (const item of (items || [])) {
-        const parsed = splitMeta(item.memo);
-        const id = extractYoutubeId(item.id) || item.id;
-        if (!id) continue;
-        const key = mergeDuplicates ? id : `${index}:${kind}:${id}:${Math.random()}`;
-        const existing = songMap.get(key);
-        const tags = Array.isArray(parsed.meta.tag_names) ? parsed.meta.tag_names : [];
-        tags.forEach(t => tagNames.add(t));
-        if (kind === "sfx") tagNames.add("SFX");
-        if (item.loop) tagNames.add("반복 재생");
-
-        const memoMeta = {};
-        if (kind === "sfx") memoMeta.original_type = "sfx";
-        if (item.loop) memoMeta.loop = true;
-        const cleanMemo = appendMeta(parsed.memo, memoMeta, preserveMeta);
-        const song = existing || {
-          youtube_url: parsed.meta.original_url || `https://www.youtube.com/watch?v=${id}`,
-          title: item.title || id,
-          thumbnail_url: parsed.meta.thumbnail_url || `https://img.youtube.com/vi/${id}/mqdefault.jpg`,
-          memo: cleanMemo,
-          folder_paths: [],
-          tag_names: []
-        };
-        if (!song.folder_paths.includes(folderPath)) song.folder_paths.push(folderPath);
-        for (const tag of tags) if (!song.tag_names.includes(tag)) song.tag_names.push(tag);
-        if (!song.memo && cleanMemo) song.memo = cleanMemo;
-        songMap.set(key, song);
+function mergeLibraries(libs){
+  const folderMap=new Map(),tagMap=new Map(),songMap=new Map();
+  libs.forEach(lib=>{
+    lib.folders.forEach(f=>{if(!folderMap.has(f.path))folderMap.set(f.path,{...f})});
+    lib.tags.forEach(t=>{if(t.name&&!tagMap.has(t.name))tagMap.set(t.name,{...t})});
+    lib.songs.forEach(s=>{
+      if(!songMap.has(s.id))songMap.set(s.id,{...s,folders:[...s.folders],tags:[...s.tags]});
+      else{
+        const e=songMap.get(s.id);
+        e.folders=[...new Set([...e.folders,...s.folders])];
+        e.tags=[...new Set([...e.tags,...s.tags])];
+        if(!e.memo&&s.memo)e.memo=s.memo;
+        if((!e.title||e.title===e.id)&&s.title)e.title=s.title;
+        if(s.type==="sfx")e.type="sfx";
+        e.loop=e.loop||s.loop;
       }
-    };
-    collect(scenario.bgm, "bgm");
-    collect(scenario.sfx, "sfx");
+    })
   });
-
-  const tagPalette = ["#6366f1","#f43f5e","#06b6d4","#f59e0b","#22c55e","#a855f7"];
-  return {
-    version: 1,
-    exported_at: nowIso(),
-    source_app: "youtube-bgm-manager",
-    folders,
-    tags: [...tagNames].map((name, i) => ({ name, color: tagPalette[i % tagPalette.length] })),
-    songs: [...songMap.values()]
-  };
+  [...songMap.values()].forEach(s=>s.tags.forEach((t,i)=>{if(t&&!tagMap.has(t))tagMap.set(t,{name:t,color:colorFor(tagMap.size)})}));
+  return {folders:[...folderMap.values()],tags:[...tagMap.values()],songs:[...songMap.values()]}
 }
-
-
-function showToast(message, type = "") {
-  const toast = $("toast");
-  toast.textContent = message;
-  toast.className = `toast ${type} show`;
-  clearTimeout(showToast.timer);
-  showToast.timer = setTimeout(() => toast.className = "toast", 2400);
-}
-
-function humanFileSize(bytes) {
-  if (!Number.isFinite(bytes)) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function setDetectedType(type) {
-  state.lastDetectedType = type || null;
-  const badge = $("formatBadge");
-  if (!type) {
-    badge.textContent = "형식 미감지";
-    badge.className = "format-badge";
-    return;
+async function addFiles(fileList){
+  const added=[];
+  for(const file of fileList){
+    try{
+      const data=JSON.parse(await file.text()),type=detect(data);
+      added.push({name:file.name,size:file.size,type,data});
+    }catch(e){setStatus(`${file.name}: ${e.message}`,"error")}
   }
-  badge.textContent = type === "manager" ? "협곡 BGM 관리 사이트" : "TRPG Watch";
-  badge.className = "format-badge detected";
+  state.files.push(...added);
+  rebuild();
 }
-
-function summarizeData(data, type) {
-  if (type === "manager") {
-    const invalid = (data.songs || []).filter(song => !extractYoutubeId(song.youtube_url)).length;
-    return {
-      groups: (data.folders || []).length,
-      tracks: (data.songs || []).length,
-      sfx: 0,
-      warnings: invalid,
-      label: "폴더"
-    };
-  }
-  const scenarios = data.scenarios || [];
-  const allBgm = scenarios.flatMap(s => s.bgm || []);
-  const allSfx = scenarios.flatMap(s => s.sfx || []);
-  const invalid = [...allBgm, ...allSfx].filter(item => !extractYoutubeId(item.id) && !/^[A-Za-z0-9_-]{11}$/.test(item.id || "")).length;
-  return {
-    groups: scenarios.length,
-    tracks: allBgm.length,
-    sfx: allSfx.length,
-    warnings: invalid,
-    label: "시나리오"
-  };
+function rebuild(){
+  const libs=state.files.map(f=>canonicalFrom(f.data,f.type));
+  state.library=mergeLibraries(libs);
+  state.selected=new Set(state.library.folders.map(f=>f.path));
+  renderFiles();renderFolders();updateStats();
+  state.result=null;$("output").value="";$("copyBtn").disabled=true;$("downloadBtn").disabled=true;
+  $("convertBtn").disabled=!state.files.length;
+  setStatus(state.files.length?`${state.files.length}개 파일을 통합했습니다.`:"");
 }
-
-function updateStats(data = null, type = null) {
-  if (!data || !type) {
-    $("stats").classList.remove("visible");
-    return;
-  }
-  const stats = summarizeData(data, type);
-  $("statGroups").textContent = stats.groups;
-  $("statTracks").textContent = stats.tracks;
-  $("statSfx").textContent = stats.sfx;
-  $("statWarnings").textContent = stats.warnings;
-  $("statGroupsLabel").textContent = stats.label;
-  $("stats").classList.add("visible");
+function renderFiles(){
+  $("files").innerHTML="";
+  state.files.forEach((f,i)=>{
+    const el=document.createElement("div");el.className="file-chip";
+    el.innerHTML=`<b></b><small>${f.type==="watch"?"TRPG Watch":"협곡 JSON"}</small><button>✕</button>`;
+    el.querySelector("b").textContent=f.name;
+    el.querySelector("button").onclick=()=>{state.files.splice(i,1);rebuild()};
+    $("files").appendChild(el);
+  })
 }
-
-function parseInput(showErrors = true) {
-  const text = $("inputJson").value.trim();
-  if (!text) {
-    setDetectedType(null);
-    updateStats();
-    $("groupPicker").classList.remove("visible");
-    state.parsedInput = null;
-    return null;
-  }
-  try {
-    const data = JSON.parse(text);
-    const type = detectType(data);
-    state.parsedInput = { data, type };
-    setDetectedType(type);
-    updateStats(data, type);
-    buildGroupPicker(data, type);
-    if ($("sourceType").value === "auto") {
-      $("targetType").value = type === "manager" ? "watch" : "manager";
-    }
-    return { data, type };
-  } catch (error) {
-    setDetectedType(null);
-    updateStats();
-    $("groupPicker").classList.remove("visible");
-    state.parsedInput = null;
-    if (showErrors) {
-      const position = /position\s+(\d+)/i.exec(error.message || "");
-      let detail = error.message || String(error);
-      if (position) {
-        const pos = Number(position[1]);
-        const before = text.slice(0, pos);
-        const line = before.split("\n").length;
-        const col = pos - before.lastIndexOf("\n");
-        detail += ` · ${line}행 ${col}열 부근`;
-      }
-      setStatus(detail, "error");
-    }
-    return null;
-  }
-}
-
-function saveWork() {
-  try {
-    const payload = {
-      input: $("inputJson").value,
-      output: $("outputJson").value,
-      sourceType: $("sourceType").value,
-      targetType: $("targetType").value,
-      sourceFilename: state.sourceFilename,
-      savedAt: Date.now()
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  } catch (_) {}
-}
-
-function restoreWork(showMessage = true) {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      if (showMessage) showToast("저장된 최근 작업이 없습니다.");
-      return false;
-    }
-    const work = JSON.parse(raw);
-    $("inputJson").value = work.input || "";
-    $("outputJson").value = work.output || "";
-    $("sourceType").value = work.sourceType || "auto";
-    $("targetType").value = work.targetType || "watch";
-    state.sourceFilename = work.sourceFilename || "";
-    $("fileMeta").textContent = state.sourceFilename ? `${state.sourceFilename} · 최근 작업 복구` : "최근 작업 복구";
-    parseInput(false);
-    if (work.output) {
-      try {
-        state.result = JSON.parse(work.output);
-        $("downloadBtn").disabled = false;
-      } catch (_) {}
-    }
-    if (showMessage) showToast("최근 작업을 복구했습니다.");
-    return true;
-  } catch (_) {
-    if (showMessage) showToast("최근 작업을 복구하지 못했습니다.", "error");
-    return false;
-  }
-}
-
-function clearAll() {
-  $("inputJson").value = "";
-  $("outputJson").value = "";
-  $("sourceType").value = "auto";
-  $("targetType").value = "watch";
-  $("downloadBtn").disabled = true;
-  $("fileMeta").textContent = "파일을 선택하거나 JSON을 붙여넣으세요.";
-  state.result = null;
-  state.sourceFilename = "";
-  setDetectedType(null);
-  updateStats();
-  setStatus("");
-  localStorage.removeItem(STORAGE_KEY);
-  showToast("입력과 최근 작업을 초기화했습니다.");
-}
-
-function formatInputJson() {
-  const parsed = parseInput(true);
-  if (!parsed) return;
-  $("inputJson").value = JSON.stringify(parsed.data, null, 2);
-  saveWork();
-  setStatus("JSON 들여쓰기를 정리했습니다.", "ok");
-  showToast("JSON을 보기 좋게 정리했습니다.");
-}
-
-function scheduleAutoValidation() {
-  clearTimeout(state.autoTimer);
-  state.autoTimer = setTimeout(() => {
-    const parsed = parseInput(false);
-    if (parsed) {
-      setStatus(`${parsed.type === "manager" ? "협곡 BGM 관리 사이트" : "TRPG Watch"} 형식 확인 완료`, "ok");
-      saveWork();
-    } else if (!$("inputJson").value.trim()) {
-      setStatus("");
-      saveWork();
-    }
-  }, 700);
-}
-
-
-function buildGroupPicker(data, type) {
-  const picker = $("groupPicker");
-  const list = $("groupList");
-  list.innerHTML = "";
-  state.selectedGroups = new Set();
-
-  const groups = type === "manager"
-    ? (data.folders || []).map(folder => {
-        const key = folder.path || folder.name;
-        const count = (data.songs || []).filter(song => (song.folder_paths || []).includes(key)).length;
-        return { key, name: folder.name || key, count };
-      })
-    : (data.scenarios || []).map((scenario, index) => ({
-        key: scenario.id || `scenario-${index}`,
-        name: scenario.name || `시나리오 ${index + 1}`,
-        count: (scenario.bgm || []).length + (scenario.sfx || []).length
-      }));
-
-  if (!groups.length) {
-    picker.classList.remove("visible");
-    return;
-  }
-
-  $("groupPickerTitle").textContent = type === "manager" ? "변환할 폴더 선택" : "변환할 시나리오 선택";
-
-  groups.forEach(group => {
-    state.selectedGroups.add(group.key);
-    const label = document.createElement("label");
-    label.className = "group-option";
-    label.innerHTML = `
-      <input type="checkbox" value="${escapeHtml(group.key)}" checked>
-      <span class="group-option-text">
-        <span class="group-option-name"></span>
-        <span class="group-option-count">${group.count}곡</span>
-      </span>`;
-    label.querySelector(".group-option-name").textContent = group.name;
-    label.querySelector("input").addEventListener("change", event => {
-      if (event.target.checked) state.selectedGroups.add(group.key);
-      else state.selectedGroups.delete(group.key);
-      updateGroupSummary(groups.length);
-      saveWork();
-    });
+function renderFolders(){
+  const list=$("folderList");list.innerHTML="";
+  if(!state.library||!state.library.folders.length){$("selectedSummary").textContent="폴더가 없습니다.";return}
+  state.library.folders.forEach(f=>{
+    const count=state.library.songs.filter(s=>s.folders.includes(f.path)).length;
+    const label=document.createElement("label");label.className="folder";
+    label.innerHTML=`<input type="checkbox" checked><span class="folder-text"><span class="folder-name"></span><span class="folder-count">${count}곡</span></span>`;
+    label.querySelector(".folder-name").textContent=f.name;
+    label.querySelector("input").onchange=e=>{e.target.checked?state.selected.add(f.path):state.selected.delete(f.path);updateSelected()};
     list.appendChild(label);
-  });
-
-  picker.classList.add("visible");
-  updateGroupSummary(groups.length);
+  });updateSelected()
 }
-
-function updateGroupSummary(total) {
-  const selected = state.selectedGroups.size;
-  $("groupPickerSummary").textContent = `${total}개 중 ${selected}개 선택`;
+function updateSelected(){$("selectedSummary").textContent=`${state.library?.folders.length||0}개 중 ${state.selected.size}개 선택`}
+function updateStats(){
+  $("fileCount").textContent=state.files.length;
+  $("folderCount").textContent=state.library?.folders.length||0;
+  $("songCount").textContent=state.library?.songs.length||0;
+  $("tagCount").textContent=state.library?.tags.length||0;
 }
-
-function filterInputBySelectedGroups(data, type) {
-  if (!state.selectedGroups.size) throw new Error("변환할 폴더나 시나리오를 하나 이상 선택하세요.");
-
-  if (type === "manager") {
-    const selected = state.selectedGroups;
-    const folders = (data.folders || []).filter(folder => selected.has(folder.path || folder.name));
-    const selectedPaths = new Set(folders.map(folder => folder.path || folder.name));
-    const songs = (data.songs || [])
-      .map(song => ({
-        ...song,
-        folder_paths: (song.folder_paths || []).filter(path => selectedPaths.has(path))
-      }))
-      .filter(song => song.folder_paths.length > 0);
-    const usedTags = new Set(songs.flatMap(song => song.tag_names || []));
-    const tags = (data.tags || []).filter(tag => usedTags.has(tag.name));
-    return { ...data, folders, tags, songs };
-  }
-
-  const scenarios = (data.scenarios || []).filter((scenario, index) =>
-    state.selectedGroups.has(scenario.id || `scenario-${index}`)
-  );
-  return { ...data, scenarios };
+function selectedLibrary(all=false){
+  const lib=state.library;if(!lib)return null;
+  const paths=all?new Set(lib.folders.map(f=>f.path)):state.selected;
+  if(!paths.size)throw new Error("폴더나 시나리오를 하나 이상 선택하세요.");
+  const folders=lib.folders.filter(f=>paths.has(f.path));
+  const songs=lib.songs.map(s=>({...s,folders:s.folders.filter(p=>paths.has(p))})).filter(s=>s.folders.length);
+  const used=new Set(songs.flatMap(s=>s.tags));
+  const tags=lib.tags.filter(t=>used.has(t.name));
+  return {folders,tags,songs}
 }
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-function convert() {
-  try {
-    const text = $("inputJson").value.trim();
-    if (!text) throw new Error("원본 JSON을 입력하세요.");
-    const parsed = parseInput(false);
-    if (!parsed) throw new Error("JSON 문법이나 파일 형식을 확인하세요.");
-    const { data: originalData, type: detected } = parsed;
-    const data = filterInputBySelectedGroups(originalData, detected);
-    const selected = $("sourceType").value;
-    const source = selected === "auto" ? detected : selected;
-    if (source !== detected) throw new Error("선택한 입력 형식과 실제 JSON 구조가 다릅니다.");
-    let target = $("targetType").value;
-    if (target === source) target = source === "manager" ? "watch" : "manager";
-
-    const preserve = $("preserveMeta").checked;
-    const merge = $("mergeDuplicates").checked;
-    const result = source === "manager"
-      ? managerToWatch(data, preserve)
-      : watchToManager(data, preserve, merge);
-
-    state.result = result;
-    state.filename = target === "watch"
-      ? `trpg-watch-scenarios-${new Date().toISOString().slice(0,10)}.json`
-      : `bgm-library-${new Date().toISOString().slice(0,10)}.json`;
-    $("outputJson").value = JSON.stringify(result, null, 2);
-    $("downloadBtn").disabled = false;
-    setStatus(`${source === "manager" ? "협곡 BGM 관리 사이트" : "TRPG Watch"} → ${target === "manager" ? "협곡 BGM 관리 사이트" : "TRPG Watch"} 변환 완료`, "ok");
-    saveWork();
-    showToast("변환이 완료되었습니다.");
-  } catch (error) {
-    state.result = null;
-    $("outputJson").value = "";
-    $("downloadBtn").disabled = true;
-    setStatus(error.message || String(error), "error");
+function toCanyon(lib){
+  return {version:1,exported_at:new Date().toISOString(),source_app:"youtube-bgm-manager",
+    folders:lib.folders.map(f=>({name:f.name,color:f.color,path:f.path})),
+    tags:lib.tags.map(t=>({name:t.name,color:t.color})),
+    songs:lib.songs.map(s=>({youtube_url:s.url||`https://www.youtube.com/watch?v=${s.id}`,title:s.title,thumbnail_url:s.thumbnail||`https://img.youtube.com/vi/${s.id}/mqdefault.jpg`,memo:s.memo||"",folder_paths:s.folders,tag_names:s.tags}))
   }
 }
-
-function setStatus(message, type = "") {
-  $("status").textContent = message;
-  $("status").className = `status ${type}`;
+function metaMemo(song,folder){
+  const meta={tag_names:song.tags||[],thumbnail_url:song.thumbnail||"",original_url:song.url||"",folder_path:folder};
+  const line="[[BGM-CONVERTER-META]]"+JSON.stringify(meta);
+  return song.memo?`${song.memo}\n${line}`:line
 }
-
-async function loadJsonFile(file) {
-  if (!file) return;
-
-  const isJsonName = file.name.toLowerCase().endsWith(".json");
-  const isJsonType = file.type === "application/json" || file.type === "";
-  if (!isJsonName && !isJsonType) {
-    throw new Error("JSON 파일만 올릴 수 있습니다.");
-  }
-
-  const text = await file.text();
-  const data = JSON.parse(text);
-  const type = detectType(data);
-
-  $("inputJson").value = JSON.stringify(data, null, 2);
-  state.sourceFilename = file.name;
-  $("fileMeta").textContent = `${file.name} · ${humanFileSize(file.size)}`;
-  $("sourceType").value = type;
-  $("targetType").value = type === "manager" ? "watch" : "manager";
-  $("outputJson").value = "";
-  state.result = null;
-  $("downloadBtn").disabled = true;
-  setDetectedType(type);
-  updateStats(data, type);
-  setStatus(`${file.name} 불러옴 · ${type === "manager" ? "협곡 BGM 관리 사이트" : "TRPG Watch"} 형식 감지`, "ok");
-  saveWork();
-  convert();
+function toWatch(lib){
+  return {version:1,exportedAt:new Date().toISOString(),scenarios:lib.folders.map((f,i)=>{
+    const songs=lib.songs.filter(s=>s.folders.includes(f.path));
+    return {id:`sc${i}`,name:f.name,bgm:songs.filter(s=>s.type!=="sfx").map(s=>({id:s.id,title:s.title,loop:!!s.loop,memo:metaMemo(s,f.path)})),sfx:songs.filter(s=>s.type==="sfx").map(s=>({id:s.id,title:s.title,loop:!!s.loop,memo:metaMemo(s,f.path)}))}
+  })}
 }
-
-let dragDepth = 0;
-
-function showDropOverlay() {
-  $("dropOverlay").classList.add("active");
-  $("dropOverlay").setAttribute("aria-hidden", "false");
-  document.body.classList.add("dragging");
+function convert(){
+  try{
+    const target=$("target").value;
+    const lib=selectedLibrary(target==="canyon-all");
+    state.result=target==="watch"?toWatch(lib):toCanyon(lib);
+    const date=new Date().toISOString().slice(0,10);
+    state.filename=target==="watch"?`trpg-watch-scenarios-${date}.json`:target==="canyon-all"?`bgm-library-merged-${date}.json`:`bgm-library-selected-${date}.json`;
+    $("output").value=JSON.stringify(state.result,null,2);
+    $("copyBtn").disabled=false;$("downloadBtn").disabled=false;
+    setStatus("변환이 완료되었습니다.","ok")
+  }catch(e){setStatus(e.message,"error")}
 }
-
-function hideDropOverlay() {
-  dragDepth = 0;
-  $("dropOverlay").classList.remove("active");
-  $("dropOverlay").setAttribute("aria-hidden", "true");
-  document.body.classList.remove("dragging");
-}
-
-window.addEventListener("dragenter", (event) => {
-  event.preventDefault();
-  if (event.dataTransfer && [...event.dataTransfer.types].includes("Files")) {
-    dragDepth += 1;
-    showDropOverlay();
-  }
-});
-
-window.addEventListener("dragover", (event) => {
-  event.preventDefault();
-  if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
-});
-
-window.addEventListener("dragleave", (event) => {
-  event.preventDefault();
-  dragDepth -= 1;
-  if (dragDepth <= 0) hideDropOverlay();
-});
-
-window.addEventListener("drop", async (event) => {
-  event.preventDefault();
-  hideDropOverlay();
-
-  try {
-    const files = [...(event.dataTransfer?.files || [])];
-    if (!files.length) throw new Error("파일을 찾을 수 없습니다.");
-    if (files.length > 1) {
-      setStatus("여러 파일 중 첫 번째 JSON 파일만 불러옵니다.");
-    }
-    await loadJsonFile(files[0]);
-  } catch (error) {
-    setStatus(error.message || String(error), "error");
-  }
-});
-
-window.addEventListener("dragend", hideDropOverlay);
-
-$("fileInput").addEventListener("change", async (event) => {
-  try {
-    await loadJsonFile(event.target.files[0]);
-  } catch (error) {
-    setStatus(error.message || String(error), "error");
-  } finally {
-    event.target.value = "";
-  }
-});
-
-$("convertBtn").addEventListener("click", convert);
-$("downloadBtn").addEventListener("click", () => {
-  if (!state.result) return;
-  const blob = new Blob([JSON.stringify(state.result, null, 2)], {type: "application/json;charset=utf-8"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = state.filename; a.click();
-  URL.revokeObjectURL(url);
-  showToast(`${state.filename} 다운로드를 시작했습니다.`);
-});
-$("copyBtn").addEventListener("click", async () => {
-  if (!$("outputJson").value) return;
-  try {
-    await navigator.clipboard.writeText($("outputJson").value);
-  } catch (_) {
-    $("outputJson").select();
-    document.execCommand("copy");
-  }
-  setStatus("변환 결과를 클립보드에 복사했습니다.", "ok");
-  showToast("변환 결과를 복사했습니다.");
-});
-$("swapBtn").addEventListener("click", () => {
-  if ($("outputJson").value) $("inputJson").value = $("outputJson").value;
-  const source = $("targetType").value;
-  $("sourceType").value = source;
-  $("targetType").value = source === "manager" ? "watch" : "manager";
-  $("outputJson").value = "";
-  state.result = null;
-  $("downloadBtn").disabled = true;
-  setStatus("직전 결과를 새 원본으로 옮겼습니다.");
-});
-
-
-$("selectAllGroupsBtn").addEventListener("click", () => {
-  document.querySelectorAll("#groupList input[type=checkbox]").forEach(input => {
-    input.checked = true;
-    state.selectedGroups.add(input.value);
-  });
-  updateGroupSummary(document.querySelectorAll("#groupList input[type=checkbox]").length);
-});
-$("clearGroupsBtn").addEventListener("click", () => {
-  document.querySelectorAll("#groupList input[type=checkbox]").forEach(input => input.checked = false);
-  state.selectedGroups.clear();
-  updateGroupSummary(document.querySelectorAll("#groupList input[type=checkbox]").length);
-});
-
-$("inputJson").addEventListener("input", scheduleAutoValidation);
-$("sourceType").addEventListener("change", () => {
-  saveWork();
-  parseInput(false);
-});
-$("targetType").addEventListener("change", saveWork);
-$("preserveMeta").addEventListener("change", saveWork);
-$("mergeDuplicates").addEventListener("change", saveWork);
-$("formatBtn").addEventListener("click", formatInputJson);
-$("clearBtn").addEventListener("click", clearAll);
-$("restoreBtn").addEventListener("click", () => restoreWork(true));
-
-document.addEventListener("keydown", (event) => {
-  const modifier = event.ctrlKey || event.metaKey;
-  if (modifier && event.key === "Enter") {
-    event.preventDefault();
-    convert();
-  }
-  if (modifier && event.key.toLowerCase() === "s") {
-    event.preventDefault();
-    if (!state.result) {
-      showToast("먼저 JSON을 변환하세요.", "error");
-      return;
-    }
-    $("downloadBtn").click();
-  }
-});
-
-$("sampleBtn").addEventListener("click", () => {
-  $("sourceType").value = "manager";
-  $("targetType").value = "watch";
-  $("inputJson").value = JSON.stringify({
-    version: 1,
-    exported_at: nowIso(),
-    source_app: "youtube-bgm-manager",
-    folders: [{name:"전투", color:"#f43f5e", path:"전투"}],
-    tags: [{name:"웅장", color:"#6366f1"}],
-    songs: [{
-      youtube_url:"https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      title:"샘플 BGM",
-      thumbnail_url:"https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg",
-      memo:"전투 시작",
-      folder_paths:["전투"],
-      tag_names:["웅장"]
-    }]
-  }, null, 2);
-  setStatus("예시 데이터를 불러왔습니다.");
-  parseInput(false);
-  saveWork();
-});
-
-restoreWork(false);
+function setStatus(msg,type=""){$("status").textContent=msg;$("status").className=`status ${type}`}
+$("fileInput").onchange=e=>{addFiles([...e.target.files]);e.target.value=""};
+$("convertBtn").onclick=convert;
+$("copyBtn").onclick=async()=>{await navigator.clipboard.writeText($("output").value);setStatus("복사했습니다.","ok")};
+$("downloadBtn").onclick=()=>{
+  const blob=new Blob([JSON.stringify(state.result,null,2)],{type:"application/json;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=state.filename;a.click();URL.revokeObjectURL(url)
+};
+$("clearBtn").onclick=()=>{state.files=[];rebuild()};
+$("allBtn").onclick=()=>{state.selected=new Set(state.library?.folders.map(f=>f.path)||[]);document.querySelectorAll(".folder input").forEach(x=>x.checked=true);updateSelected()};
+$("noneBtn").onclick=()=>{state.selected.clear();document.querySelectorAll(".folder input").forEach(x=>x.checked=false);updateSelected()};
+let depth=0;
+window.addEventListener("dragenter",e=>{e.preventDefault();if([...e.dataTransfer.types].includes("Files")){depth++;$("overlay").classList.add("show")}});
+window.addEventListener("dragover",e=>e.preventDefault());
+window.addEventListener("dragleave",e=>{e.preventDefault();if(--depth<=0){depth=0;$("overlay").classList.remove("show")}});
+window.addEventListener("drop",e=>{e.preventDefault();depth=0;$("overlay").classList.remove("show");addFiles([...e.dataTransfer.files])});
 </script>
 </body>
 </html>
