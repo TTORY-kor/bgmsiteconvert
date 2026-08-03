@@ -1,6 +1,4 @@
-[README.md](https://github.com/user-attachments/files/30640590/README.md)
-# bgmsiteconvert
-bgmsiteconvert
+[README.md](https://github.com/user-attachments/files/30640708/README.md)
 # BGM JSON Converter
 
 YouTube BGM Manager와 TRPG Watch의 JSON 내보내기 파일을 브라우저에서 양방향 변환하는 정적 웹사이트입니다.
@@ -8,12 +6,20 @@ YouTube BGM Manager와 TRPG Watch의 JSON 내보내기 파일을 브라우저에
 ## 기능
 
 - JSON 파일 업로드 또는 직접 붙여넣기
+- 바탕화면이나 탐색기에서 JSON 파일 드래그 앤 드롭
 - 입력 형식 자동 감지
 - YouTube BGM Manager → TRPG Watch
 - TRPG Watch → YouTube BGM Manager
 - 변환 결과 복사 및 다운로드
 - 서버 전송 없이 브라우저에서만 처리
 - GitHub Pages 배포 가능
+- 복사 실패 시 구형 브라우저 대체 복사 지원
+- 단축키: `Ctrl/Cmd + Enter` 변환, `Ctrl/Cmd + S` 다운로드
+- JSON 들여쓰기 정리 및 전체 초기화
+- JSON 문법 오류 위치 안내
+- 폴더·시나리오·BGM·SFX·주의 항목 통계 표시
+- 최근 작업을 브라우저에 자동 저장하고 복구
+- 파일을 불러오면 자동 형식 감지 후 즉시 변환
 
 ## 변환 기준
 
