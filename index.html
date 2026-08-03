@@ -104,12 +104,116 @@
     .notes {
       margin-top: 22px;
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 12px;
     }
     .note { padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: rgba(19,23,34,.72); }
     .note strong { display:block; margin-bottom: 7px; }
     .note p { margin:0; color: var(--muted); font-size: 13px; line-height: 1.65; }
+
+
+    .quickbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(15, 19, 29, .72);
+    }
+    .quickbar .spacer { flex: 1; }
+    .mini-button {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 11px;
+      color: var(--text);
+      background: #1a2030;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .mini-button:hover, .file-button:hover, .secondary:hover, .swap:hover {
+      border-color: #46516b;
+      transform: translateY(-1px);
+    }
+    .file-meta {
+      min-width: 0;
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .stats {
+      display: none;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      padding: 14px 20px;
+      border-top: 1px solid var(--line);
+      background: rgba(15, 19, 29, .72);
+    }
+    .stats.visible { display: grid; }
+    .stat {
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #121722;
+    }
+    .stat-value {
+      display: block;
+      margin-bottom: 3px;
+      font-size: 20px;
+      font-weight: 900;
+    }
+    .stat-label {
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .format-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      background: #171d2a;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .format-badge.detected {
+      color: var(--accent-2);
+      border-color: rgba(93, 214, 192, .35);
+    }
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 1200;
+      max-width: min(390px, calc(100% - 40px));
+      padding: 13px 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      color: var(--text);
+      background: #171d2a;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: .18s ease;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.error { border-color: rgba(255, 114, 133, .55); }
+    .shortcut {
+      color: #c8d0e3;
+      border: 1px solid var(--line);
+      border-bottom-width: 2px;
+      border-radius: 5px;
+      padding: 1px 5px;
+      background: #10151f;
+      font-family: inherit;
+      font-size: 10px;
+    }
 
     .drop-overlay {
       position: fixed;
@@ -166,10 +270,14 @@
       .notes { grid-template-columns: 1fr; }
       .actions { width: 100%; margin-left: 0; }
       .actions button { flex: 1; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .quickbar .spacer { display: none; }
+      .file-meta { width: 100%; order: 3; }
     }
   </style>
 </head>
 <body>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div class="drop-overlay" id="dropOverlay" aria-hidden="true">
     <div class="drop-card">
       <span class="drop-icon">⇩</span>
@@ -202,6 +310,15 @@
         </label>
       </div>
 
+      <div class="quickbar">
+        <span class="format-badge" id="formatBadge">형식 미감지</span>
+        <span class="file-meta" id="fileMeta">파일을 선택하거나 JSON을 붙여넣으세요.</span>
+        <span class="spacer"></span>
+        <button class="mini-button" id="restoreBtn" title="최근 작업 복구">최근 작업</button>
+        <button class="mini-button" id="formatBtn" title="JSON 들여쓰기 정리">JSON 정리</button>
+        <button class="mini-button" id="clearBtn" title="입력과 결과 초기화">초기화</button>
+      </div>
+
       <div class="workspace">
         <section class="column">
           <div class="column-head">
@@ -230,18 +347,32 @@
         </div>
       </div>
       <div class="status" id="status"></div>
+      <div class="stats" id="stats">
+        <div class="stat"><span class="stat-value" id="statGroups">0</span><span class="stat-label" id="statGroupsLabel">폴더/시나리오</span></div>
+        <div class="stat"><span class="stat-value" id="statTracks">0</span><span class="stat-label">BGM</span></div>
+        <div class="stat"><span class="stat-value" id="statSfx">0</span><span class="stat-label">SFX</span></div>
+        <div class="stat"><span class="stat-value" id="statWarnings">0</span><span class="stat-label">주의 항목</span></div>
+      </div>
     </section>
 
     <section class="notes">
       <article class="note"><strong>폴더 ↔ 시나리오</strong><p>BGM Manager 폴더는 TRPG Watch 시나리오로 변환됩니다. 여러 폴더에 속한 곡은 각 시나리오에 포함됩니다.</p></article>
       <article class="note"><strong>YouTube 주소 ↔ ID</strong><p>watch, youtu.be, shorts, embed 주소를 분석해 영상 ID를 추출합니다. 역변환할 때는 표준 watch 주소를 만듭니다.</p></article>
       <article class="note"><strong>형식 차이 보완</strong><p>태그·폴더 색·반복 재생·SFX처럼 상대 형식에 없는 값은 선택 시 메모의 전용 메타데이터 줄에 보관합니다.</p></article>
+      <article class="note"><strong>빠른 조작</strong><p><span class="shortcut">Ctrl</span> + <span class="shortcut">Enter</span> 변환 · <span class="shortcut">Ctrl</span> + <span class="shortcut">S</span> 다운로드 · 입력 후 0.7초 뒤 자동 검증.</p></article>
     </section>
   </main>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const state = { result: null, filename: "converted.json" };
+const state = {
+  result: null,
+  filename: "converted.json",
+  sourceFilename: "",
+  lastDetectedType: null,
+  autoTimer: null
+};
+const STORAGE_KEY = "bgm-json-converter:last-work:v2";
 const META_PREFIX = "[[BGM-CONVERTER-META]]";
 
 function nowIso() { return new Date().toISOString(); }
@@ -435,12 +566,196 @@ function watchToManager(data, preserveMeta, mergeDuplicates) {
   };
 }
 
+
+function showToast(message, type = "") {
+  const toast = $("toast");
+  toast.textContent = message;
+  toast.className = `toast ${type} show`;
+  clearTimeout(showToast.timer);
+  showToast.timer = setTimeout(() => toast.className = "toast", 2400);
+}
+
+function humanFileSize(bytes) {
+  if (!Number.isFinite(bytes)) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function setDetectedType(type) {
+  state.lastDetectedType = type || null;
+  const badge = $("formatBadge");
+  if (!type) {
+    badge.textContent = "형식 미감지";
+    badge.className = "format-badge";
+    return;
+  }
+  badge.textContent = type === "manager" ? "YouTube BGM Manager" : "TRPG Watch";
+  badge.className = "format-badge detected";
+}
+
+function summarizeData(data, type) {
+  if (type === "manager") {
+    const invalid = (data.songs || []).filter(song => !extractYoutubeId(song.youtube_url)).length;
+    return {
+      groups: (data.folders || []).length,
+      tracks: (data.songs || []).length,
+      sfx: 0,
+      warnings: invalid,
+      label: "폴더"
+    };
+  }
+  const scenarios = data.scenarios || [];
+  const allBgm = scenarios.flatMap(s => s.bgm || []);
+  const allSfx = scenarios.flatMap(s => s.sfx || []);
+  const invalid = [...allBgm, ...allSfx].filter(item => !extractYoutubeId(item.id) && !/^[A-Za-z0-9_-]{11}$/.test(item.id || "")).length;
+  return {
+    groups: scenarios.length,
+    tracks: allBgm.length,
+    sfx: allSfx.length,
+    warnings: invalid,
+    label: "시나리오"
+  };
+}
+
+function updateStats(data = null, type = null) {
+  if (!data || !type) {
+    $("stats").classList.remove("visible");
+    return;
+  }
+  const stats = summarizeData(data, type);
+  $("statGroups").textContent = stats.groups;
+  $("statTracks").textContent = stats.tracks;
+  $("statSfx").textContent = stats.sfx;
+  $("statWarnings").textContent = stats.warnings;
+  $("statGroupsLabel").textContent = stats.label;
+  $("stats").classList.add("visible");
+}
+
+function parseInput(showErrors = true) {
+  const text = $("inputJson").value.trim();
+  if (!text) {
+    setDetectedType(null);
+    updateStats();
+    return null;
+  }
+  try {
+    const data = JSON.parse(text);
+    const type = detectType(data);
+    setDetectedType(type);
+    updateStats(data, type);
+    if ($("sourceType").value === "auto") {
+      $("targetType").value = type === "manager" ? "watch" : "manager";
+    }
+    return { data, type };
+  } catch (error) {
+    setDetectedType(null);
+    updateStats();
+    if (showErrors) {
+      const position = /position\s+(\d+)/i.exec(error.message || "");
+      let detail = error.message || String(error);
+      if (position) {
+        const pos = Number(position[1]);
+        const before = text.slice(0, pos);
+        const line = before.split("\n").length;
+        const col = pos - before.lastIndexOf("\n");
+        detail += ` · ${line}행 ${col}열 부근`;
+      }
+      setStatus(detail, "error");
+    }
+    return null;
+  }
+}
+
+function saveWork() {
+  try {
+    const payload = {
+      input: $("inputJson").value,
+      output: $("outputJson").value,
+      sourceType: $("sourceType").value,
+      targetType: $("targetType").value,
+      sourceFilename: state.sourceFilename,
+      savedAt: Date.now()
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch (_) {}
+}
+
+function restoreWork(showMessage = true) {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      if (showMessage) showToast("저장된 최근 작업이 없습니다.");
+      return false;
+    }
+    const work = JSON.parse(raw);
+    $("inputJson").value = work.input || "";
+    $("outputJson").value = work.output || "";
+    $("sourceType").value = work.sourceType || "auto";
+    $("targetType").value = work.targetType || "watch";
+    state.sourceFilename = work.sourceFilename || "";
+    $("fileMeta").textContent = state.sourceFilename ? `${state.sourceFilename} · 최근 작업 복구` : "최근 작업 복구";
+    parseInput(false);
+    if (work.output) {
+      try {
+        state.result = JSON.parse(work.output);
+        $("downloadBtn").disabled = false;
+      } catch (_) {}
+    }
+    if (showMessage) showToast("최근 작업을 복구했습니다.");
+    return true;
+  } catch (_) {
+    if (showMessage) showToast("최근 작업을 복구하지 못했습니다.", "error");
+    return false;
+  }
+}
+
+function clearAll() {
+  $("inputJson").value = "";
+  $("outputJson").value = "";
+  $("sourceType").value = "auto";
+  $("targetType").value = "watch";
+  $("downloadBtn").disabled = true;
+  $("fileMeta").textContent = "파일을 선택하거나 JSON을 붙여넣으세요.";
+  state.result = null;
+  state.sourceFilename = "";
+  setDetectedType(null);
+  updateStats();
+  setStatus("");
+  localStorage.removeItem(STORAGE_KEY);
+  showToast("입력과 최근 작업을 초기화했습니다.");
+}
+
+function formatInputJson() {
+  const parsed = parseInput(true);
+  if (!parsed) return;
+  $("inputJson").value = JSON.stringify(parsed.data, null, 2);
+  saveWork();
+  setStatus("JSON 들여쓰기를 정리했습니다.", "ok");
+  showToast("JSON을 보기 좋게 정리했습니다.");
+}
+
+function scheduleAutoValidation() {
+  clearTimeout(state.autoTimer);
+  state.autoTimer = setTimeout(() => {
+    const parsed = parseInput(false);
+    if (parsed) {
+      setStatus(`${parsed.type === "manager" ? "YouTube BGM Manager" : "TRPG Watch"} 형식 확인 완료`, "ok");
+      saveWork();
+    } else if (!$("inputJson").value.trim()) {
+      setStatus("");
+      saveWork();
+    }
+  }, 700);
+}
+
 function convert() {
   try {
     const text = $("inputJson").value.trim();
     if (!text) throw new Error("원본 JSON을 입력하세요.");
-    const data = JSON.parse(text);
-    const detected = detectType(data);
+    const parsed = parseInput(false);
+    if (!parsed) throw new Error("JSON 문법이나 파일 형식을 확인하세요.");
+    const { data, type: detected } = parsed;
     const selected = $("sourceType").value;
     const source = selected === "auto" ? detected : selected;
     if (source !== detected) throw new Error("선택한 입력 형식과 실제 JSON 구조가 다릅니다.");
@@ -460,6 +775,8 @@ function convert() {
     $("outputJson").value = JSON.stringify(result, null, 2);
     $("downloadBtn").disabled = false;
     setStatus(`${source === "manager" ? "YouTube BGM Manager" : "TRPG Watch"} → ${target === "manager" ? "YouTube BGM Manager" : "TRPG Watch"} 변환 완료`, "ok");
+    saveWork();
+    showToast("변환이 완료되었습니다.");
   } catch (error) {
     state.result = null;
     $("outputJson").value = "";
@@ -487,12 +804,18 @@ async function loadJsonFile(file) {
   const type = detectType(data);
 
   $("inputJson").value = JSON.stringify(data, null, 2);
+  state.sourceFilename = file.name;
+  $("fileMeta").textContent = `${file.name} · ${humanFileSize(file.size)}`;
   $("sourceType").value = type;
   $("targetType").value = type === "manager" ? "watch" : "manager";
   $("outputJson").value = "";
   state.result = null;
   $("downloadBtn").disabled = true;
+  setDetectedType(type);
+  updateStats(data, type);
   setStatus(`${file.name} 불러옴 · ${type === "manager" ? "YouTube BGM Manager" : "TRPG Watch"} 형식 감지`, "ok");
+  saveWork();
+  convert();
 }
 
 let dragDepth = 0;
@@ -565,11 +888,18 @@ $("downloadBtn").addEventListener("click", () => {
   const a = document.createElement("a");
   a.href = url; a.download = state.filename; a.click();
   URL.revokeObjectURL(url);
+  showToast(`${state.filename} 다운로드를 시작했습니다.`);
 });
 $("copyBtn").addEventListener("click", async () => {
   if (!$("outputJson").value) return;
-  await navigator.clipboard.writeText($("outputJson").value);
+  try {
+    await navigator.clipboard.writeText($("outputJson").value);
+  } catch (_) {
+    $("outputJson").select();
+    document.execCommand("copy");
+  }
   setStatus("변환 결과를 클립보드에 복사했습니다.", "ok");
+  showToast("변환 결과를 복사했습니다.");
 });
 $("swapBtn").addEventListener("click", () => {
   if ($("outputJson").value) $("inputJson").value = $("outputJson").value;
@@ -581,6 +911,35 @@ $("swapBtn").addEventListener("click", () => {
   $("downloadBtn").disabled = true;
   setStatus("직전 결과를 새 원본으로 옮겼습니다.");
 });
+
+$("inputJson").addEventListener("input", scheduleAutoValidation);
+$("sourceType").addEventListener("change", () => {
+  saveWork();
+  parseInput(false);
+});
+$("targetType").addEventListener("change", saveWork);
+$("preserveMeta").addEventListener("change", saveWork);
+$("mergeDuplicates").addEventListener("change", saveWork);
+$("formatBtn").addEventListener("click", formatInputJson);
+$("clearBtn").addEventListener("click", clearAll);
+$("restoreBtn").addEventListener("click", () => restoreWork(true));
+
+document.addEventListener("keydown", (event) => {
+  const modifier = event.ctrlKey || event.metaKey;
+  if (modifier && event.key === "Enter") {
+    event.preventDefault();
+    convert();
+  }
+  if (modifier && event.key.toLowerCase() === "s") {
+    event.preventDefault();
+    if (!state.result) {
+      showToast("먼저 JSON을 변환하세요.", "error");
+      return;
+    }
+    $("downloadBtn").click();
+  }
+});
+
 $("sampleBtn").addEventListener("click", () => {
   $("sourceType").value = "manager";
   $("targetType").value = "watch";
@@ -600,7 +959,11 @@ $("sampleBtn").addEventListener("click", () => {
     }]
   }, null, 2);
   setStatus("예시 데이터를 불러왔습니다.");
+  parseInput(false);
+  saveWork();
 });
+
+restoreWork(false);
 </script>
 </body>
 </html>
